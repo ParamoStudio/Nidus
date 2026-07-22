@@ -41,9 +41,9 @@ export const app = $state({
 });
 
 const persistRecords = () => save(LS.records, app.records);
-// Kept generous on purpose: this is the only place you can see what the phone has already handed over,
-// and watching entries vanish after a few captures reads as data loss.
-const HISTORY_MAX = 30;
+// A receipt, not a feature: just enough to confirm the last few captures landed. Anything you actually
+// want to work with lives in Nidus.
+const HISTORY_MAX = 3;
 
 /** The project a new capture defaults to: whatever you used last, if it still exists. */
 export function defaultProject() {

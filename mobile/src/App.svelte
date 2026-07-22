@@ -1,5 +1,6 @@
 <script>
   import { onMount } from "svelte";
+  import Metaball from "./lib/Metaball.svelte";
   import {
     app, adoptFromLocation, adoptFromText, unpair, sync,
     addRecord, updateRecord, deleteRecord, projects, tags, userName,
@@ -18,7 +19,6 @@
   let query = $state("");
   let editingID = $state(null);   // set while reopening something that hasn't been collected yet
   let expandedID = $state(null);  // which waiting capture is opened up on the landing
-  let showAllHistory = $state(false);
 
   // A stable colour + letter per project, so the lists read at a glance instead of as grey text.
   const initial = (name) => (name || "?").trim().charAt(0).toUpperCase();
@@ -46,6 +46,23 @@
   });
 
   const grouped = $derived(groupedProjects());
+  const searching = $derived(query.trim().length > 0);
+  let openDiscipline = $state(null);
+
+  /** Everything not already surfaced above, grouped by discipline so the long tail stays folded away. */
+  const disciplines = $derived.by(() => {
+    const surfaced = new Set([...grouped.pinned, ...grouped.recent.slice(0, 3)].map((p) => p.id));
+    const byName = new Map();
+    for (const p of projects()) {
+      if (surfaced.has(p.id)) continue;
+      const name = p.discipline || "Other";
+      if (!byName.has(name)) byName.set(name, []);
+      byName.get(name).push(p);
+    }
+    return [...byName.entries()]
+      .map(([name, list]) => ({ name, projects: list }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  });
   const matches = (p) => {
     const q = query.trim().toLowerCase();
     return !q || p.name.toLowerCase().includes(q) || (p.discipline || "").toLowerCase().includes(q);
@@ -124,6 +141,13 @@
   };
 </script>
 
+{#snippet projectRow(p)}
+  <button class="prow" onclick={() => chooseProject(p)}>
+    <span class="avatar" style="background:{hue(p.name)}">{initial(p.name)}</span>
+    <span class="grow"><span class="name">{p.name}</span><span class="sub">{p.discipline}</span></span>
+  </button>
+{/snippet}
+
 {#if isDesktop}
   <main class="center">
     <div class="card">
@@ -158,17 +182,7 @@
     <button class="ghost small" onclick={sync} disabled={app.busy}>{app.busy ? "…" : "Sync"}</button>
   </header>
   <main>
-    <div class="hero">
-      <svg class="blob" viewBox="0 0 120 90" aria-hidden="true">
-        <defs>
-          <radialGradient id="g" cx="35%" cy="30%">
-            <stop offset="0%" stop-color="#fff" />
-            <stop offset="100%" stop-color="#c9d3ee" />
-          </radialGradient>
-        </defs>
-        <path fill="url(#g)" d="M44 12c16-6 33 1 38 15 5 15-3 27-16 34-14 7-31 8-42-2C13 49 12 33 20 23c6-8 13-7 24-11z" />
-      </svg>
-    </div>
+    <div class="hero"><Metaball size={104} /></div>
     <p class="greet">{greeting()}{userName() ? `, ${userName()}` : ""}.</p>
     <h1 class="big">What do you want to capture?</h1>
 
@@ -213,30 +227,19 @@
     {/if}
 
     {#if app.history.length}
-      <h2 class="section">Already in Nidus · {app.history.length}</h2>
-      <ul class="list">
-        {#each app.history.slice(0, showAllHistory ? app.history.length : 5) as h (h.id)}
-          <li class="record dim">
-            <span class="avatar" style="background:{hue(h.projectName)}">{initial(h.projectName)}</span>
-            <div class="grow">
-              <span class="name">{h.title}</span>
-              <span class="sub">{h.projectName} · {h.kind === "task" ? "Task" : "Inbox"} · {ago(h.filedAt)}</span>
-            </div>
-          </li>
+      <h2 class="section">Already in Nidus</h2>
+      <ul class="log">
+        {#each app.history.slice(0, 3) as h (h.id)}
+          <li>{h.title} <span class="sub">· {h.projectName} · {ago(h.filedAt)}</span></li>
         {/each}
       </ul>
-      {#if app.history.length > 5}
-        <button class="ghost wide" onclick={() => (showAllHistory = !showAllHistory)}>
-          {showAllHistory ? "Show less" : `Show all ${app.history.length}`}
-        </button>
-      {/if}
     {/if}
 
     {#if app.status}<p class="status">{app.status}</p>{/if}
     <button class="ghost wide danger" onclick={unpair}>Unpair this phone</button>
   </main>
 
-<!-- ── 2b. The project picker (reachable from compose) ───────────────────────────────────── -->
+<!-- ── 2b. The project picker ───────────────────────────────────────────────────────────── -->
 {:else if view === "picker"}
   <header>
     <button class="ghost small" onclick={() => (view = "compose")}>Back</button>
@@ -245,41 +248,59 @@
   </header>
   <main>
     <input class="search" bind:value={query} placeholder="Search projects…" />
-    {#if grouped.pinned.filter(matches).length}
-      <h2 class="section">Pinned</h2>
+
+    {#if searching}
+      <!-- While searching, groups only get in the way: one flat list of what matches. -->
       <ul class="list">
-        {#each grouped.pinned.filter(matches) as p (p.id)}
-          <li><button class="prow" onclick={() => chooseProject(p)}>
-            <span class="avatar" style="background:{hue(p.name)}">{initial(p.name)}</span>
-            <span class="grow"><span class="name">{p.name}</span><span class="sub">{p.discipline}</span></span>
-          </button></li>
+        {#each projects().filter(matches) as p (p.id)}
+          <li>{@render projectRow(p)}</li>
         {/each}
       </ul>
-    {/if}
-    {#if grouped.recent.filter(matches).length}
-      <h2 class="section">Recent</h2>
-      <ul class="list">
-        {#each grouped.recent.filter(matches) as p (p.id)}
-          <li><button class="prow" onclick={() => chooseProject(p)}>
-            <span class="avatar" style="background:{hue(p.name)}">{initial(p.name)}</span>
-            <span class="grow"><span class="name">{p.name}</span><span class="sub">{p.discipline}</span></span>
-          </button></li>
-        {/each}
-      </ul>
-    {/if}
-    {#if grouped.rest.filter(matches).length}
-      <h2 class="section">All projects</h2>
-      <ul class="list">
-        {#each grouped.rest.filter(matches) as p (p.id)}
-          <li><button class="prow" onclick={() => chooseProject(p)}>
-            <span class="avatar" style="background:{hue(p.name)}">{initial(p.name)}</span>
-            <span class="grow"><span class="name">{p.name}</span><span class="sub">{p.discipline}</span></span>
-          </button></li>
-        {/each}
-      </ul>
-    {/if}
-    {#if !projects().length}
-      <p class="hint">No projects yet. Open Nidus on your computer and press Sync — it publishes your project list here.</p>
+      {#if !projects().filter(matches).length}
+        <p class="hint">Nothing matches “{query}”.</p>
+      {/if}
+    {:else}
+      {#if grouped.pinned.length}
+        <h2 class="section">Pinned</h2>
+        <ul class="list">
+          {#each grouped.pinned as p (p.id)}<li>{@render projectRow(p)}</li>{/each}
+        </ul>
+      {/if}
+
+      {#if grouped.recent.length}
+        <h2 class="section">Recent</h2>
+        <ul class="list">
+          {#each grouped.recent.slice(0, 3) as p (p.id)}<li>{@render projectRow(p)}</li>{/each}
+        </ul>
+      {/if}
+
+      {#if disciplines.length}
+        <h2 class="section">Disciplines</h2>
+        <ul class="list">
+          {#each disciplines as d (d.name)}
+            <li class="entry">
+              <button class="entryhead" onclick={() => (openDiscipline = openDiscipline === d.name ? null : d.name)}>
+                <span>
+                  <span class="name">{d.name}</span>
+                  <span class="sub">{d.projects.length} project{d.projects.length === 1 ? "" : "s"}</span>
+                </span>
+                <span class="chev">{openDiscipline === d.name ? "▾" : "▸"}</span>
+              </button>
+              {#if openDiscipline === d.name}
+                <div class="entrybody">
+                  <ul class="list nested">
+                    {#each d.projects as p (p.id)}<li>{@render projectRow(p)}</li>{/each}
+                  </ul>
+                </div>
+              {/if}
+            </li>
+          {/each}
+        </ul>
+      {/if}
+
+      {#if !projects().length}
+        <p class="hint">No projects yet. Open Nidus on your computer and press Sync — it publishes your project list here.</p>
+      {/if}
     {/if}
   </main>
 
@@ -448,4 +469,8 @@
   .tags button.active { background: #ff8a3d; color: #1b1205; border-color: #ff8a3d; }
   details summary { cursor: pointer; color: #aab2c5; font-size: 15px; margin-bottom: 8px; }
   .search { margin-bottom: 4px; }
+  .log { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+  .log li { font-size: 13px; color: #cfd6e6; padding: 2px 0; }
+  .log .sub { display: inline; font-size: 12px; }
+  .list.nested { margin-top: 10px; }
 </style>
