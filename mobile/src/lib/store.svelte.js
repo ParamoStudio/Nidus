@@ -12,6 +12,7 @@ const LS = {
   pairing: "nidus.pairing",
   reference: "nidus.reference",
   records: "nidus.records",
+  tombstones: "nidus.tombstones",
   recent: "nidus.recentProjects",
   usedAt: "nidus.usedAt",
   history: "nidus.history",
@@ -36,6 +37,10 @@ export const app = $state({
   pairing: load(LS.pairing, null), // { token, base }
   reference: load(LS.reference, null), // { projects, tags, pushedAt }
   records: load(LS.records, []), // local queue, still to be collected
+  // Ids we've deleted here that the relay may still be holding. Deleting the local copy is NOT enough:
+  // once a record has been uploaded it lives in the mailbox, and Nidus would happily file the thing you
+  // just threw away. These are retried until the relay confirms, so a delete survives being offline.
+  tombstones: load(LS.tombstones, []),
   recent: load(LS.recent, []), // project ids, most recently captured-into first
   usedAt: load(LS.usedAt, {}), // project id → ISO of the last capture into it
   history: load(LS.history, []), // the last few captures Nidus has already filed
@@ -90,7 +95,9 @@ export function adoptPairing(pairing) {
   if (changed) {
     app.reference = null;
     app.records = [];
+    app.tombstones = [];   // ids from the old mailbox mean nothing in the new one
     save(LS.reference, null);
+    save(LS.tombstones, app.tombstones);
     persistRecords();
   }
   return true;
@@ -114,8 +121,10 @@ export function unpair() {
   app.pairing = null;
   app.reference = null;
   app.records = [];
+  app.tombstones = [];
   save(LS.pairing, null);
   save(LS.reference, null);
+  save(LS.tombstones, app.tombstones);
   persistRecords();
 }
 
@@ -140,9 +149,16 @@ export function updateRecord(id, patch) {
   persistRecords();
 }
 
+/** Deleting here has to reach the relay too, or Nidus files what you just discarded. */
 export function deleteRecord(id) {
+  const record = app.records.find((r) => r.id === id);
   app.records = app.records.filter((r) => r.id !== id);
   persistRecords();
+  // Never uploaded → the relay never heard of it, so there's nothing to retract.
+  if (!record?.sent) return;
+  app.tombstones = [...new Set([...app.tombstones, id])];
+  save(LS.tombstones, app.tombstones);
+  sync();   // don't wait for the next sync; a delete should take effect now
 }
 
 // ---- relay --------------------------------------------------------------------------------------
@@ -178,6 +194,21 @@ export async function sync() {
   }
   app.busy = true;
   try {
+    // 0. Retract deletions FIRST — before anything else can race it, and before we'd otherwise push.
+    //    Each id only leaves the tombstone list once the relay has confirmed it's gone.
+    if (app.tombstones.length) {
+      const stillThere = [];
+      for (const id of app.tombstones) {
+        try {
+          await relay("DELETE", `up?id=${encodeURIComponent(id)}`);
+        } catch {
+          stillThere.push(id);
+        }
+      }
+      app.tombstones = stillThere;
+      save(LS.tombstones, app.tombstones);
+    }
+
     // 1. Push anything the relay hasn't accepted yet (re-posting an edited record replaces it by id).
     let held = 0;
     for (const record of app.records.filter((r) => !r.sent)) {

@@ -5,6 +5,23 @@ Formato humano. La extensión Raycast lleva su propio changelog aparte (otro cod
 
 ---
 
+## Fase 12.3 · Borrar en el móvil borra de verdad · Miércoles, 22 de julio de 2026
+
+**Bug real, encontrado usándolo.** Creas una tarea → se sincroniza → la borras en el móvil → abres Nidus y
+la tarea aparece igualmente. Borrar solo quitaba la copia local; lo que ya estaba subido seguía en el buzón,
+y Nidus hacía su trabajo: archivar lo que hay. El bug no era de Nidus, era que el móvil nunca se retractaba.
+
+- `deleteRecord` ahora deja una **lápida** (`tombstones`, persistida) con el id de lo borrado que ya se había
+  subido, y lanza un sync inmediato. Si el registro nunca llegó a subirse no hay nada que retractar.
+- `sync()` vacía las lápidas **lo primero**, antes de empujar o recoger nada, y un id solo sale de la lista
+  cuando el relay confirma. Así borrar sin cobertura también funciona: la retractación espera y se aplica sola.
+- Al desemparejar (o emparejar con otro ordenador) las lápidas se tiran: son ids de otro buzón.
+- Verificado con el camino real de código contra un relay simulado: borrar con red (desaparece al instante),
+  borrar sin red (queda la lápida, el relay lo conserva) y recuperar red (el siguiente sync lo retracta), y
+  en ningún caso acaba en "Already in Nidus" — porque no lo archivó Nidus, lo tiraste tú.
+
+---
+
 ## Fase 12.2 · Retoques de la PWA + calendario propio · Miércoles, 22 de julio de 2026
 
 - **Calendario propio (`DeadlinePicker.svelte`)** en vez del `input[type=date]` nativo. El nativo solo sabe
