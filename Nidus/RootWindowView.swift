@@ -40,6 +40,20 @@ struct RootWindowView: View {
                 await bridge.pushDown(model)   // dirty-flagged: only writes if the project list changed
             }
         }
+        // Publish the project list the moment it changes — created, renamed, archived, pinned, deleted —
+        // so a project made now is on the phone now, not after the next relaunch. Still dirty-flagged.
+        .onChange(of: model.config) { _, _ in
+            guard bridge.isConfigured else { return }
+            Task { await bridge.pushDown(model) }
+        }
+        // And keep collecting while Nidus sits open, so captures land without you touching anything.
+        .task {
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(20 * 60))
+                guard !Task.isCancelled, bridge.isConfigured else { continue }
+                await bridge.pullUp(model)
+            }
+        }
     }
 
     /// The window is a small floating panel for both entry surfaces (vault picker + greeting);

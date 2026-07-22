@@ -41,6 +41,21 @@ final class PhoneBridge {
     /// A short, human sentence about the last sync ("2 new, 1 updated"). Surfaced in the panel — an
     /// import that happens silently reads as a glitch.
     private(set) var lastMessage: String?
+    /// A brief floating note for the workspace: what's happening, and what arrived. Nil = show nothing.
+    /// Deliberately quiet — it only speaks up while checking and when something actually landed.
+    private(set) var toast: String?
+    private var toastToken = 0
+
+    private func showToast(_ text: String?, clearAfter seconds: Double? = nil) {
+        toastToken &+= 1
+        let token = toastToken
+        toast = text
+        guard let seconds else { return }
+        Task {
+            try? await Task.sleep(for: .seconds(seconds))
+            if toastToken == token { toast = nil }   // a newer toast wins; don't clear it early
+        }
+    }
 
     // MARK: Pairing state
 
@@ -123,7 +138,9 @@ final class PhoneBridge {
             ])
         }
         let tags = (model.config?.tags ?? []).map { ["id": $0.id, "name": $0.name] }
-        return ["v": 1, "projects": projects, "tags": tags]   // `pushedAt` is added at send time
+        // The name you set in the Greeting, so the phone can greet you the same way.
+        let userName = defaults.string(forKey: "nidus.userName") ?? ""
+        return ["v": 1, "projects": projects, "tags": tags, "userName": userName]   // `pushedAt` added at send time
     }
 
     // MARK: Pull (captures → the real `.md` files)
@@ -134,6 +151,7 @@ final class PhoneBridge {
     func pullUp(_ model: NidusModel) async -> Int {
         guard isConfigured, !busy else { return 0 }
         busy = true
+        showToast("Checking your phone…")
         defer { busy = false }
         do {
             let data = try await send("GET", "up", body: nil)
@@ -149,9 +167,12 @@ final class PhoneBridge {
             }
             if filed > 0 { model.notifyFileChange() }
             lastMessage = filed == 0 ? "Nothing waiting." : "Filed \(filed) capture\(filed == 1 ? "" : "s") from your phone."
+            // Only announce something that actually arrived; a routine empty check should stay silent.
+            showToast(filed == 0 ? nil : "Filed \(filed) from your phone", clearAfter: filed == 0 ? nil : 4)
             return filed
         } catch {
             lastMessage = "Couldn't reach the relay."
+            showToast("Couldn't reach your phone's relay", clearAfter: 4)
             return 0
         }
     }

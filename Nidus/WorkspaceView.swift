@@ -149,6 +149,27 @@ struct WorkspaceView: View {
             .padding(.top, 44) // room for the Blueprint pill that floats just above the identity card
             .padding(.bottom, 22)
             .overlay(alignment: .bottomTrailing) { phoneOnboarding.padding(28) }
+            .overlay(alignment: .bottom) { phoneToast.padding(.bottom, 26) }
+        }
+    }
+
+    /// A quiet floating note while phone captures are being collected — a silent import reads as a
+    /// glitch, but a routine empty check shouldn't announce itself either (PhoneBridge decides).
+    @ViewBuilder private var phoneToast: some View {
+        if let toast = bridge.toast {
+            HStack(spacing: 8) {
+                if bridge.busy {
+                    ProgressView().controlSize(.small)
+                } else {
+                    Image(systemName: "iphone.gen3").font(.caption)
+                }
+                Text(toast).font(.caption)
+            }
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 14).padding(.vertical, 9)
+            .glassCard(cornerRadius: 20)
+            .transition(.opacity.combined(with: .move(edge: .bottom)))
+            .animation(.easeOut(duration: 0.22), value: toast)
         }
     }
 

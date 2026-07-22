@@ -2,7 +2,7 @@
   import { onMount } from "svelte";
   import {
     app, adoptFromLocation, adoptFromText, unpair, sync,
-    addRecord, updateRecord, deleteRecord, projects, tags,
+    addRecord, updateRecord, deleteRecord, projects, tags, userName,
     defaultProject, noteProjectUsed, groupedProjects,
   } from "./lib/store.svelte.js";
 
@@ -18,6 +18,15 @@
   let query = $state("");
   let editingID = $state(null);   // set while reopening something that hasn't been collected yet
   let expandedID = $state(null);  // which waiting capture is opened up on the landing
+  let showAllHistory = $state(false);
+
+  // A stable colour + letter per project, so the lists read at a glance instead of as grey text.
+  const initial = (name) => (name || "?").trim().charAt(0).toUpperCase();
+  const hue = (name) => {
+    let h = 0;
+    for (const c of name || "") h = (h * 31 + c.charCodeAt(0)) % 360;
+    return `hsl(${h} 45% 32%)`;
+  };
 
   // compose fields
   let title = $state("");
@@ -149,21 +158,24 @@
     <button class="ghost small" onclick={sync} disabled={app.busy}>{app.busy ? "…" : "Sync"}</button>
   </header>
   <main>
-    <p class="greet">{greeting()}.</p>
+    <div class="hero">
+      <svg class="blob" viewBox="0 0 120 90" aria-hidden="true">
+        <defs>
+          <radialGradient id="g" cx="35%" cy="30%">
+            <stop offset="0%" stop-color="#fff" />
+            <stop offset="100%" stop-color="#c9d3ee" />
+          </radialGradient>
+        </defs>
+        <path fill="url(#g)" d="M44 12c16-6 33 1 38 15 5 15-3 27-16 34-14 7-31 8-42-2C13 49 12 33 20 23c6-8 13-7 24-11z" />
+      </svg>
+    </div>
+    <p class="greet">{greeting()}{userName() ? `, ${userName()}` : ""}.</p>
     <h1 class="big">What do you want to capture?</h1>
 
-    <div class="choices">
-      <button class="choice" onclick={() => start("inbox")}>
-        <span class="ico">◲</span>
-        <span class="ct">New Inbox</span>
-        <span class="cd">Notes, links, ideas — anything unstructured.</span>
-      </button>
-      <button class="choice" onclick={() => start("task")}>
-        <span class="ico">◷</span>
-        <span class="ct">New Task</span>
-        <span class="cd">Something to do, with tags and a deadline.</span>
-      </button>
-    </div>
+    <button class="cta" onclick={() => start("inbox")}>
+      <span class="ctat">Capture something new</span>
+      <span class="ctad">Straight into a project's inbox — or switch it to a task.</span>
+    </button>
 
     {#if app.records.length}
       <h2 class="section">Waiting for Nidus · {app.records.length}</h2>
@@ -201,17 +213,23 @@
     {/if}
 
     {#if app.history.length}
-      <h2 class="section">Already in Nidus</h2>
+      <h2 class="section">Already in Nidus · {app.history.length}</h2>
       <ul class="list">
-        {#each app.history.slice(0, 3) as h (h.id)}
+        {#each app.history.slice(0, showAllHistory ? app.history.length : 5) as h (h.id)}
           <li class="record dim">
-            <div>
+            <span class="avatar" style="background:{hue(h.projectName)}">{initial(h.projectName)}</span>
+            <div class="grow">
               <span class="name">{h.title}</span>
               <span class="sub">{h.projectName} · {h.kind === "task" ? "Task" : "Inbox"} · {ago(h.filedAt)}</span>
             </div>
           </li>
         {/each}
       </ul>
+      {#if app.history.length > 5}
+        <button class="ghost wide" onclick={() => (showAllHistory = !showAllHistory)}>
+          {showAllHistory ? "Show less" : `Show all ${app.history.length}`}
+        </button>
+      {/if}
     {/if}
 
     {#if app.status}<p class="status">{app.status}</p>{/if}
@@ -231,8 +249,9 @@
       <h2 class="section">Pinned</h2>
       <ul class="list">
         {#each grouped.pinned.filter(matches) as p (p.id)}
-          <li><button onclick={() => chooseProject(p)}>
-            <span class="name">{p.name}</span><span class="sub">{p.discipline}</span>
+          <li><button class="prow" onclick={() => chooseProject(p)}>
+            <span class="avatar" style="background:{hue(p.name)}">{initial(p.name)}</span>
+            <span class="grow"><span class="name">{p.name}</span><span class="sub">{p.discipline}</span></span>
           </button></li>
         {/each}
       </ul>
@@ -241,8 +260,9 @@
       <h2 class="section">Recent</h2>
       <ul class="list">
         {#each grouped.recent.filter(matches) as p (p.id)}
-          <li><button onclick={() => chooseProject(p)}>
-            <span class="name">{p.name}</span><span class="sub">{p.discipline}</span>
+          <li><button class="prow" onclick={() => chooseProject(p)}>
+            <span class="avatar" style="background:{hue(p.name)}">{initial(p.name)}</span>
+            <span class="grow"><span class="name">{p.name}</span><span class="sub">{p.discipline}</span></span>
           </button></li>
         {/each}
       </ul>
@@ -251,8 +271,9 @@
       <h2 class="section">All projects</h2>
       <ul class="list">
         {#each grouped.rest.filter(matches) as p (p.id)}
-          <li><button onclick={() => chooseProject(p)}>
-            <span class="name">{p.name}</span><span class="sub">{p.discipline}</span>
+          <li><button class="prow" onclick={() => chooseProject(p)}>
+            <span class="avatar" style="background:{hue(p.name)}">{initial(p.name)}</span>
+            <span class="grow"><span class="name">{p.name}</span><span class="sub">{p.discipline}</span></span>
           </button></li>
         {/each}
       </ul>
@@ -275,7 +296,8 @@
     {:else}
       <!-- The destination is already decided (last used) — one tap to change it. -->
       <button class="destination" onclick={() => (view = "picker")}>
-        <span>
+        <span class="avatar" style="background:{hue(project.name)}">{initial(project.name)}</span>
+        <span class="grow">
           <span class="name">{project.name}</span>
           <span class="sub">{project.discipline}</span>
         </span>
@@ -369,6 +391,21 @@
   .ghost.small { padding: 7px 12px; font-size: 14px; }
   .wide { width: 100%; margin-top: 14px; }
   .ghost.danger { color: #ff9a9a; margin-top: 26px; }
+  .hero { display: grid; place-items: center; padding: 10px 0 2px; }
+  .blob { width: 96px; height: 72px; filter: drop-shadow(0 6px 26px #aebbe655); }
+  .cta {
+    width: 100%; display: grid; gap: 4px; text-align: left; padding: 20px;
+    background: linear-gradient(135deg, #4b5ad6, #6f5bd0); border: 1px solid #ffffff2a;
+    border-radius: 18px; box-shadow: 0 10px 30px #2a2f6a55;
+  }
+  .ctat { font-size: 18px; font-weight: 700; }
+  .ctad { font-size: 13px; color: #dfe3ff; }
+  .avatar {
+    width: 34px; height: 34px; flex: none; border-radius: 11px; display: grid; place-items: center;
+    font-size: 14px; font-weight: 700; color: #fff;
+  }
+  .grow { flex: 1; min-width: 0; }
+  .prow { display: flex; align-items: center; gap: 11px; }
   .choices { display: grid; gap: 12px; }
   .choice {
     display: grid; gap: 3px; text-align: left; padding: 18px;
@@ -387,7 +424,7 @@
     width: 100%; text-align: left; padding: 14px; background: #ffffff0a;
     border: 1px solid #ffffff14; border-radius: 14px;
   }
-  .record { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .record { display: flex; align-items: center; gap: 11px; }
   .record.dim { opacity: 0.55; }
   .entry { background: #ffffff0a; border: 1px solid #ffffff14; border-radius: 14px; overflow: hidden; }
   .entryhead {

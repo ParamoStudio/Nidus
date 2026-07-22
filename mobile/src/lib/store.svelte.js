@@ -41,7 +41,9 @@ export const app = $state({
 });
 
 const persistRecords = () => save(LS.records, app.records);
-const HISTORY_MAX = 8;
+// Kept generous on purpose: this is the only place you can see what the phone has already handed over,
+// and watching entries vanish after a few captures reads as data loss.
+const HISTORY_MAX = 30;
 
 /** The project a new capture defaults to: whatever you used last, if it still exists. */
 export function defaultProject() {
@@ -212,4 +214,5 @@ export async function sync() {
 }
 
 export const projects = () => app.reference?.projects ?? [];
+export const userName = () => app.reference?.userName || "";
 export const tags = () => app.reference?.tags ?? [];
