@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
   import Metaball from "./lib/Metaball.svelte";
   import ProjectIcon from "./lib/ProjectIcon.svelte";
+  import DeadlinePicker from "./lib/DeadlinePicker.svelte";
   import {
     app, adoptFromLocation, adoptFromText, unpair, sync, toggleTheme,
     addRecord, updateRecord, deleteRecord, projects, tags, userName,
@@ -20,6 +21,7 @@
   let query = $state("");
   let editingID = $state(null);   // set while reopening something that hasn't been collected yet
   let expandedID = $state(null);  // which waiting capture is opened up on the landing
+  let showHelp = $state(false);
 
   // compose fields
   let title = $state("");
@@ -202,7 +204,12 @@
           </svg>
         {/if}
       </button>
-      <a class="circle" href="https://github.com/ParamoStudio/Nidus" target="_blank" rel="noreferrer" aria-label="About Nidus">?</a>
+      <a class="circle" href="https://github.com/ParamoStudio/Nidus" target="_blank" rel="noreferrer" aria-label="Nidus on GitHub">
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M12 2a10 10 0 0 0-3.16 19.49c.5.09.68-.22.68-.48v-1.7c-2.78.6-3.37-1.34-3.37-1.34-.45-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.61.07-.61 1 .07 1.53 1.03 1.53 1.03.9 1.53 2.34 1.09 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.94 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.65 0 0 .84-.27 2.75 1.02a9.5 9.5 0 0 1 5 0c1.91-1.29 2.75-1.02 2.75-1.02.55 1.38.2 2.4.1 2.65.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.69-4.57 4.93.36.31.68.92.68 1.85v2.74c0 .27.18.58.69.48A10 10 0 0 0 12 2Z" />
+        </svg>
+      </a>
+      <button class="circle" onclick={() => (showHelp = true)} aria-label="What is Nidus?">?</button>
     </span>
   </header>
   <main>
@@ -272,18 +279,21 @@
 
     {#if app.history.length}
       <h2 class="section">Already in Nidus</h2>
-      <ul class="log">
+      <ul class="log glass">
         {#each app.history.slice(0, 3) as h (h.id)}
-          <li>{h.title} <span class="sub">· {h.projectName} · {ago(h.filedAt)}</span></li>
+          <li>
+            <span class="dot" aria-hidden="true"></span>
+            <span class="grow"><span class="logtitle">{h.title}</span><span class="sub">{h.projectName} · {ago(h.filedAt)}</span></span>
+          </li>
         {/each}
       </ul>
     {/if}
 
     <div class="footer">
-      <button class="ghost small" onclick={sync} disabled={app.busy}>{app.busy ? "Syncing…" : "Sync now"}</button>
-      {#if app.status}<span class="status">{app.status}</span>{/if}
+      <button class="ghost wide" onclick={sync} disabled={app.busy}>{app.busy ? "Syncing…" : "Sync manually"}</button>
+      {#if app.status}<p class="status">{app.status}</p>{/if}
+      <button class="unpair" onclick={unpair}>Unpair this phone</button>
     </div>
-    <button class="ghost wide danger" onclick={unpair}>Unpair this phone</button>
   </main>
 
 <!-- ── 2b. The project picker ───────────────────────────────────────────────────────────── -->
@@ -397,14 +407,9 @@
           </div>
         {/if}
 
-        <label class="lbl" for="d">Deadline (optional)</label>
-        <input id="d" type="date" bind:value={dueDate} />
+        <span class="lbl">Deadline (optional)</span>
+        <DeadlinePicker bind:date={dueDate} bind:scope={dueScope} />
         {#if dueDate}
-          <div class="segmented small">
-            {#each ["day", "week", "month"] as s}
-              <button class:active={dueScope === s} onclick={() => (dueScope = s)}>{s}</button>
-            {/each}
-          </div>
           <input bind:value={dueNote} placeholder="Deadline note (optional)" />
         {/if}
       {:else}
@@ -422,6 +427,38 @@
 
 {/if}
 
+
+<!-- ── The "?" sheet: what this thing is, and the one trap worth warning about ──────────── -->
+{#if showHelp}
+  <!-- Closing on the scrim itself (not on anything inside it) keeps the sheet handler-free. -->
+  <div class="scrim" role="presentation" onclick={(e) => { if (e.target === e.currentTarget) showHelp = false; }}>
+    <div class="sheet glass" role="dialog" aria-modal="true" aria-label="About Nidus Capture">
+      <h2>Nidus Capture</h2>
+      <p>
+        <strong>Nidus</strong> is a project orchestrator on your computer: every project is a real folder
+        of Markdown files that you own, arranged as a workspace of small tools.
+      </p>
+      <p>
+        This web app is its <strong>capture end</strong>. It doesn't show your projects' contents and it
+        never will — it exists so an idea or a task can reach the right project while you're away from the
+        computer. You write, it queues, and Nidus files it into the actual Inbox or Task Manager next time
+        it's open.
+      </p>
+      <p>
+        It works offline. A capture stays on this phone until Nidus has really filed it, so nothing is lost
+        in a tunnel or a bad signal.
+      </p>
+      <h3>Added it to your Home Screen and it asks to pair again?</h3>
+      <p>
+        That's iOS, not a bug: an installed web app gets its own private storage, so the pairing you made in
+        Safari is invisible to it. Open Nidus on your computer → the phone button in the sidebar → copy the
+        pairing code, and paste it here. Once is enough.
+      </p>
+      <button class="ghost wide" onclick={() => (showHelp = false)}>Got it</button>
+    </div>
+  </div>
+{/if}
+
 <style>
   /* ── The Nidus design language ────────────────────────────────────────────────────────────
      Same palette as the app (GlassStyle.swift): a contained warm→cool ambient gradient with a
@@ -436,7 +473,7 @@
     --accent: #6d8bff; --accent-soft: #3a5bff33;
     --cta-a: #3f57d8; --cta-b: #6d5fce;
     --blob-hi: #ffffff; --blob-mid: #e4eaf8; --blob-lo: #b9c6e6; --blob-glow: #93a6e055;
-    --danger: #ff9a9a; --scrim: #141519d1;
+    --danger: #ff9a9a; --scrim: #141519d1; --sheet: #1b1d27f2;
     color-scheme: dark;
   }
   :global(:root[data-theme="light"]) {
@@ -449,7 +486,7 @@
     --accent: #2f4be0; --accent-soft: #3a5bff26;
     --cta-a: #4257de; --cta-b: #6f60d6;
     --blob-hi: #4a5570; --blob-mid: #2c3345; --blob-lo: #171a24; --blob-glow: #6d7fbd44;
-    --danger: #c23b3b; --scrim: #e8eaf4cc;
+    --danger: #c23b3b; --scrim: #e8eaf4cc; --sheet: #f6f7fcf7;
     color-scheme: light;
   }
 
@@ -515,8 +552,6 @@
   a { color: var(--accent); }
   .hint { font-size: 14px; }
   .error { color: var(--danger); font-size: 13px; }
-  .status { font-size: 13px; color: var(--dim); }
-  .footer { display: flex; align-items: center; gap: 12px; margin-top: 26px; }
 
   /* ── Capture choices ─────────────────────────────────────────────────────────────────── */
   .choices { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -563,8 +598,6 @@
   .entryactions { display: flex; gap: 8px; margin-top: 12px; }
   .list.nested { margin-top: 10px; }
   .log { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
-  .log li { font-size: 13px; color: var(--text); opacity: 0.85; padding: 2px 0; }
-  .log .sub { display: inline; font-size: 12px; }
 
   /* ── Fields ──────────────────────────────────────────────────────────────────────────── */
   .lbl {
@@ -576,8 +609,6 @@
     background: var(--field); border: 1px solid var(--field-edge); border-radius: 14px;
     -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
   }
-  /* Left alone on purpose: iOS then gives the real system date wheel on tap. */
-  input[type="date"] { min-height: 51px; text-align: left; }
   input.title { font-size: 17px; }
   textarea { resize: vertical; }
   textarea.tall { min-height: 210px; }
@@ -614,13 +645,42 @@
     flex: 1; padding: 12px; background: var(--field); border: 1px solid var(--field-edge); color: var(--dim);
   }
   .segmented button.active { background: var(--accent); color: #fff; font-weight: 600; border-color: transparent; }
-  .segmented.small { margin-top: 10px; }
-  .segmented.small button { padding: 9px; font-size: 13px; text-transform: capitalize; }
   .tags { display: flex; flex-wrap: wrap; gap: 6px; }
   .tags button {
     padding: 9px 14px; font-size: 14px; border-radius: 999px;
     background: var(--field); border: 1px solid var(--field-edge); color: var(--dim);
   }
   .tags button.active { background: var(--accent); color: #fff; border-color: transparent; }
+
+  /* ── Help sheet ──────────────────────────────────────────────────────────────────────── */
+  .scrim {
+    position: fixed; inset: 0; z-index: 20; display: grid; align-items: end;
+    background: #00000059; -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px);
+    padding: 12px; overflow-y: auto;
+  }
+  /* Opaque enough to read against: a sheet you have to squint through is a broken sheet. */
+  .sheet { padding: 22px; border-radius: 24px; margin: auto 0 0; background: var(--sheet); }
+  .sheet h2 { font-size: 19px; margin: 0 0 10px; }
+  .sheet h3 { font-size: 14px; margin: 18px 0 6px; }
+  .sheet p { font-size: 14.5px; line-height: 1.5; }
+  .sheet strong { color: var(--text); }
+
+  /* ── Footer: sync is the action, unpairing is a quiet way out ─────────────────────────── */
+  .footer { display: grid; gap: 10px; margin-top: 30px; justify-items: center; }
+  .footer .wide { margin-top: 0; }
+  .status { font-size: 13px; color: var(--dim); margin: 0; text-align: center; }
+  .unpair {
+    background: none; border: none; padding: 2px 6px; font-size: 13px; color: var(--danger);
+    text-decoration: underline; text-underline-offset: 3px;
+  }
+
+  /* ── Already in Nidus: a receipt, but one with a little weight ────────────────────────── */
+  .log { padding: 4px 14px; gap: 0; }
+  .log li { display: flex; align-items: center; gap: 11px; padding: 11px 0; opacity: 1; }
+  .log li + li { border-top: 1px solid var(--glass-strong); }
+  .log .dot { width: 6px; height: 6px; flex: none; border-radius: 50%; background: var(--accent); opacity: 0.75; }
+  .logtitle { display: block; font-size: 14px; }
+  .log .sub { display: block; font-size: 12px; margin-top: 2px; }
+
   details summary { cursor: pointer; color: var(--dim); font-size: 15px; margin-bottom: 8px; }
 </style>

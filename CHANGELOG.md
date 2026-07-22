@@ -5,6 +5,29 @@ Formato humano. La extensión Raycast lleva su propio changelog aparte (otro cod
 
 ---
 
+## Fase 12.2 · Retoques de la PWA + calendario propio · Miércoles, 22 de julio de 2026
+
+- **Calendario propio (`DeadlinePicker.svelte`)** en vez del `input[type=date]` nativo. El nativo solo sabe
+  decir "día", así que usarlo tiraba a la basura dos tercios de la función: en Nidus una fecha límite es una
+  fecha **y lo estricta que es**. El scope sale del gesto — toca un día (día), tócalo otra vez (su semana),
+  toca el nombre del mes (el mes entero). Semana empezando en lunes, igual que `Calendar.startOfWeek` de la
+  app, y las ventanas (semana/mes) se pintan más suaves que una fecha dura porque son otra cosa. Plegado
+  por defecto: casi ninguna captura lleva deadline.
+- **"Already in Nidus"** con cuerpo: contenedor de cristal, separadores y un punto de acento por línea.
+  Siguen siendo 3 y sigue siendo un recibo, no una lista de trabajo.
+- **"Sync manually"** pasa a ser el botón protagonista del pie; **"Unpair this phone"** baja a enlace discreto
+  debajo, con el rojo pero sin botón grande: desemparejar no compite con sincronizar.
+- **Botón "?"** abre una hoja explicando qué es Nidus, qué hace (y qué NO hace) esta webapp, y el aviso de
+  iOS: una app instalada tiene almacén propio, así que hay que pegarle el código de emparejamiento una vez.
+- **Botón de GitHub** propio al lado, que es quien debe llevar al repo.
+- Verificado en navegador: los tres scopes del calendario (día / semana Jul 6–12 / mes), limpiar, y ambos
+  temas. Build de la PWA sin avisos.
+
+*(Nota: el auto-sync ya estaba — `pullUp` + `pushDown` al activarse la ventana, `pushDown` en cuanto cambia
+la lista de proyectos, y `pullUp` cada 20 min mientras Nidus está abierto.)*
+
+---
+
 ## Fase 12.1 · El lenguaje de diseño de Nidus en el móvil · Miércoles, 22 de julio de 2026
 
 La estructura de la PWA estaba bien, pero estéticamente no era Nidus: paneles grises planos, acento naranja
