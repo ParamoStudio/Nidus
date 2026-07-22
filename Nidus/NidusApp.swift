@@ -2,31 +2,44 @@
 //  NidusApp.swift
 //  Nidus
 //
-//  Created by Kumare Agape on 20/06/2026.
+//  Entry point. No SwiftData, no database: the filesystem is the single source of truth (§9.3).
+//  One window = one project; ⌘N opens a new window (its own Greeting Panel), ⌘W closes it.
 //
 
 import SwiftUI
-import SwiftData
+#if os(macOS)
+import AppKit
+#endif
 
 @main
 struct NidusApp: App {
-    var sharedModelContainer: ModelContainer = {
-        let schema = Schema([
-            Item.self,
-        ])
-        let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
+    /// Shared app-wide state (vault + config). Project selection is per-window.
+    @State private var model = NidusModel()
+    @State private var theme = ThemeController()
+    /// Phone pairing + capture sync (see PhoneBridge.swift). App-wide: one pairing per vault/device.
+    @State private var bridge = PhoneBridge()
 
-        do {
-            return try ModelContainer(for: schema, configurations: [modelConfiguration])
-        } catch {
-            fatalError("Could not create ModelContainer: \(error)")
-        }
-    }()
+    init() {
+        #if os(macOS)
+        // One project = one WINDOW, never a tab. Without this, ⌘N on a maximized window makes macOS
+        // merge the new window in as a TAB (shrinking the existing one) — the opposite of what we want:
+        // separate, independently-sizable windows so several projects can be open side by side.
+        NSWindow.allowsAutomaticWindowTabbing = false
+        #endif
+    }
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            RootWindowView()
+                .environment(model)
+                .environment(theme)
+                .environment(bridge)
         }
-        .modelContainer(sharedModelContainer)
+        #if os(macOS)
+        .windowStyle(.hiddenTitleBar)
+        // New windows (⌘N → a Greeting) are born at the panel size, so they don't flash the large
+        // workspace size (inherited from the last window) before WindowConfigurator shrinks them.
+        .defaultSize(width: 360, height: 600)
+        #endif
     }
 }

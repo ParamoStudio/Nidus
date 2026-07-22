@@ -1,0 +1,11 @@
+name = "nidus-relay"
+main = "worker.js"
+compatibility_date = "2024-11-01"
+
+# The mailbox. Create it with:  wrangler kv namespace create NIDUS_RELAY
+# then paste the printed id below. The binding NAME must stay NIDUS_RELAY — the worker reads env.NIDUS_RELAY.
+[[kv_namespaces]]
+binding = "NIDUS_RELAY"
+id = "<your-kv-namespace-id>"
+
+# There are no secrets. The pairing token IS the credential, and it never leaves the QR / pairing code.

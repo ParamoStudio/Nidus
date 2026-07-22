@@ -1,0 +1,56 @@
+name: Deploy phone app
+
+# The PWA that pairs with Nidus (mobile/). Deployed to GitHub Pages so it can be installed and work
+# offline — a service worker needs a secure context, which is exactly why the Mac can't just serve it
+# over the LAN.
+on:
+  push:
+    branches: [main]
+    paths: ["mobile/**", ".github/workflows/deploy-mobile.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Never run two deploys at once; don't cancel one in flight.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+        env:
+          # NOT cosmetic: on a project Pages site the app lives at /<repo>/. A relative base gives the
+          # service worker an invalid scope — the app installs but never works offline, while looking
+          # fine on first visit.
+          PAGES_BASE: /Nidus/
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: mobile/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
