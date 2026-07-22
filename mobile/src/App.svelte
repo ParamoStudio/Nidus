@@ -5,7 +5,9 @@
     addRecord, deleteRecord, projects, tags,
   } from "./lib/store.svelte.js";
 
-  // The phone app pairs and captures; opened on a laptop it's a way to make a mess.
+  // Phones and tablets only. Touch capability is the reliable discriminator: a Mac reports 0 touch
+  // points, while an iPad reports 5 even with a Magic Keyboard attached (a pointer/width rule would
+  // wrongly lock out exactly that setup). Keeps needless traffic — and mistakes — off the desktop.
   let isDesktop = $state(false);
   let view = $state("home");        // home | compose | pending
   let project = $state(null);       // the project being captured into
@@ -24,7 +26,7 @@
   let more = $state(false);
 
   onMount(() => {
-    isDesktop = window.matchMedia("(pointer: fine) and (min-width: 900px)").matches;
+    isDesktop = (navigator.maxTouchPoints || 0) === 0;
     adoptFromLocation();
     sync();
     const onOnline = () => sync();
@@ -75,7 +77,12 @@
   <main class="center">
     <div class="card">
       <h1>Nidus Capture</h1>
-      <p>This is the phone companion. On your computer, just use the Nidus app — it's where your projects actually live.</p>
+      <p>
+        This is a companion web app for
+        <a href="https://github.com/ParamoStudio/Nidus" target="_blank" rel="noreferrer">Nidus</a>,
+        the project orchestrator — it's for phones and tablets.
+      </p>
+      <p>Open it through the QR code inside the app to use it. Thanks!</p>
     </div>
   </main>
 {:else if !app.pairing}

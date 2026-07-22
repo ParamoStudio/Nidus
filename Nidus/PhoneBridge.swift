@@ -23,9 +23,9 @@ import SwiftUI
 enum BridgeConfig {
     /// Where the phone web app is served from. The QR points here with the pairing in the hash.
     static let phoneAppBase = "https://paramostudio.github.io/Nidus/"
-    /// Nidus ships with NO relay of its own — you deploy a free one (relay/README.md) and paste its URL
-    /// in the panel's Advanced section. Empty until then.
-    static let defaultRelayBase = ""
+    /// The relay Nidus ships with. Anyone can point at their own instead (panel → Advanced → verified with
+    /// a write-then-read probe); see relay/README.md. Empty here would mean "no relay until you deploy one".
+    static let defaultRelayBase = "https://nidus-inbox.paramoyermo.workers.dev"
 }
 
 @MainActor
