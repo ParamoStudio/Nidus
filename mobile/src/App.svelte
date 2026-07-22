@@ -1,8 +1,9 @@
 <script>
   import { onMount } from "svelte";
   import Metaball from "./lib/Metaball.svelte";
+  import ProjectIcon from "./lib/ProjectIcon.svelte";
   import {
-    app, adoptFromLocation, adoptFromText, unpair, sync,
+    app, adoptFromLocation, adoptFromText, unpair, sync, toggleTheme,
     addRecord, updateRecord, deleteRecord, projects, tags, userName,
     defaultProject, noteProjectUsed, groupedProjects,
   } from "./lib/store.svelte.js";
@@ -20,14 +21,6 @@
   let editingID = $state(null);   // set while reopening something that hasn't been collected yet
   let expandedID = $state(null);  // which waiting capture is opened up on the landing
 
-  // A stable colour + letter per project, so the lists read at a glance instead of as grey text.
-  const initial = (name) => (name || "?").trim().charAt(0).toUpperCase();
-  const hue = (name) => {
-    let h = 0;
-    for (const c of name || "") h = (h * 31 + c.charCodeAt(0)) % 360;
-    return `hsl(${h} 45% 32%)`;
-  };
-
   // compose fields
   let title = $state("");
   let body = $state("");
@@ -43,6 +36,11 @@
     const onOnline = () => sync();
     window.addEventListener("online", onOnline);
     return () => window.removeEventListener("online", onOnline);
+  });
+
+  // The appearance lives on the root element so the page background reacts too, not just the app.
+  $effect(() => {
+    document.documentElement.dataset.theme = app.theme;
   });
 
   const grouped = $derived(groupedProjects());
@@ -139,18 +137,28 @@
     const h = Math.round(mins / 60);
     return h < 24 ? `${h}h ago` : `${Math.round(h / 24)}d ago`;
   };
+  /** A recent project's subtitle: when you last captured into it, falling back to its discipline. */
+  const lastUsed = (p) => (app.usedAt[p.id] ? `Last used ${ago(app.usedAt[p.id])}` : p.discipline);
 </script>
 
-{#snippet projectRow(p)}
-  <button class="prow" onclick={() => chooseProject(p)}>
-    <span class="avatar" style="background:{hue(p.name)}">{initial(p.name)}</span>
-    <span class="grow"><span class="name">{p.name}</span><span class="sub">{p.discipline}</span></span>
+{#snippet projectRow(p, subtitle)}
+  <button class="row" onclick={() => chooseProject(p)}>
+    <ProjectIcon project={p} size={38} />
+    <span class="grow"><span class="name">{p.name}</span><span class="sub">{subtitle ?? p.discipline}</span></span>
+    {#if p.pinned}<span class="pin" aria-hidden="true">⚲</span>{:else}<span class="chev">›</span>{/if}
+  </button>
+{/snippet}
+
+{#snippet sphere(p)}
+  <button class="sphere" onclick={() => chooseProject(p)}>
+    <ProjectIcon project={p} size={78} />
+    <span class="spherelabel">{p.name}</span>
   </button>
 {/snippet}
 
 {#if isDesktop}
   <main class="center">
-    <div class="card">
+    <div class="glass pad">
       <h1>Nidus Capture</h1>
       <p>
         This is a companion web app for
@@ -162,7 +170,7 @@
   </main>
 {:else if !app.pairing}
   <main class="center">
-    <div class="card">
+    <div class="glass pad">
       <h1>Nidus Capture</h1>
       <p>Open Nidus on your computer, tap the phone button in the sidebar, and scan the QR with your camera.</p>
       <details>
@@ -179,32 +187,68 @@
 {:else if view === "home"}
   <header>
     <span class="wordmark">NIDUS</span>
-    <button class="ghost small" onclick={sync} disabled={app.busy}>{app.busy ? "…" : "Sync"}</button>
+    <span class="controls">
+      <button class="circle" onclick={toggleTheme} aria-label="Toggle appearance">
+        {#if app.theme === "dark"}
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5Z" />
+          </svg>
+        {:else}
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round">
+            <circle cx="12" cy="12" r="4.2" />
+            {#each [0, 45, 90, 135, 180, 225, 270, 315] as a}
+              <line x1="12" y1="2.6" x2="12" y2="5" transform="rotate({a} 12 12)" />
+            {/each}
+          </svg>
+        {/if}
+      </button>
+      <a class="circle" href="https://github.com/ParamoStudio/Nidus" target="_blank" rel="noreferrer" aria-label="About Nidus">?</a>
+    </span>
   </header>
   <main>
-    <div class="hero"><Metaball size={104} /></div>
+    <div class="hero"><Metaball size={112} /></div>
     <p class="greet">{greeting()}{userName() ? `, ${userName()}` : ""}.</p>
     <h1 class="big">What do you want to capture?</h1>
 
-    <button class="cta" onclick={() => start("inbox")}>
-      <span class="ctat">Capture something new</span>
-      <span class="ctad">Straight into a project's inbox — or switch it to a task.</span>
-    </button>
+    <div class="choices">
+      <button class="choice glass" onclick={() => start("inbox")}>
+        <span class="badge">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 13h4l1.6 2.6h6.8L17 13h4" />
+            <path d="M4.6 6.2 3 13v4.4A1.6 1.6 0 0 0 4.6 19h14.8a1.6 1.6 0 0 0 1.6-1.6V13l-1.6-6.8A1.6 1.6 0 0 0 17.8 5H6.2a1.6 1.6 0 0 0-1.6 1.2Z" />
+          </svg>
+          <span class="plus">+</span>
+        </span>
+        <span class="ct">New Inbox</span>
+        <span class="cd">Send notes, links, ideas, or anything unstructured.</span>
+      </button>
+      <button class="choice glass" onclick={() => start("task")}>
+        <span class="badge">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="8.4" />
+            <path d="m8.4 12.2 2.6 2.6 4.6-5.2" />
+          </svg>
+          <span class="plus">+</span>
+        </span>
+        <span class="ct">New Task</span>
+        <span class="cd">Create a task with details, tags, and a due date.</span>
+      </button>
+    </div>
 
     {#if app.records.length}
       <h2 class="section">Waiting for Nidus · {app.records.length}</h2>
       <ul class="list">
         {#each app.records as r (r.id)}
-          <li class="entry">
+          <li class="entry glass">
             <button class="entryhead" onclick={() => (expandedID = expandedID === r.id ? null : r.id)}>
-              <span>
+              <span class="grow">
                 <span class="name">{r.title}</span>
                 <span class="sub">
                   {r.projectName} · {r.kind === "task" ? "Task" : "Inbox"}
                   {#if !r.sent} · not sent yet{/if}
                 </span>
               </span>
-              <span class="chev">{expandedID === r.id ? "▾" : "▸"}</span>
+              <span class="chev">{expandedID === r.id ? "⌄" : "›"}</span>
             </button>
             {#if expandedID === r.id}
               <div class="entrybody">
@@ -235,25 +279,33 @@
       </ul>
     {/if}
 
-    {#if app.status}<p class="status">{app.status}</p>{/if}
+    <div class="footer">
+      <button class="ghost small" onclick={sync} disabled={app.busy}>{app.busy ? "Syncing…" : "Sync now"}</button>
+      {#if app.status}<span class="status">{app.status}</span>{/if}
+    </div>
     <button class="ghost wide danger" onclick={unpair}>Unpair this phone</button>
   </main>
 
 <!-- ── 2b. The project picker ───────────────────────────────────────────────────────────── -->
 {:else if view === "picker"}
   <header>
-    <button class="ghost small" onclick={() => (view = "compose")}>Back</button>
-    <strong>Choose project</strong>
-    <span class="spacer"></span>
+    <button class="circle" onclick={() => (view = "compose")} aria-label="Back">‹</button>
+    <strong class="htitle">Choose Project</strong>
+    <span class="controls"><span class="circle ghostly"></span></span>
   </header>
   <main>
-    <input class="search" bind:value={query} placeholder="Search projects…" />
+    <div class="searchwrap">
+      <svg class="searchicon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+        <circle cx="11" cy="11" r="6.4" /><path d="m15.8 15.8 4 4" />
+      </svg>
+      <input class="search" bind:value={query} placeholder="Search projects…" />
+    </div>
 
     {#if searching}
       <!-- While searching, groups only get in the way: one flat list of what matches. -->
       <ul class="list">
         {#each projects().filter(matches) as p (p.id)}
-          <li>{@render projectRow(p)}</li>
+          <li>{@render projectRow(p, null)}</li>
         {/each}
       </ul>
       {#if !projects().filter(matches).length}
@@ -262,34 +314,35 @@
     {:else}
       {#if grouped.pinned.length}
         <h2 class="section">Pinned</h2>
-        <ul class="list">
-          {#each grouped.pinned as p (p.id)}<li>{@render projectRow(p)}</li>{/each}
-        </ul>
+        <!-- The greeting panel's row of glass spheres: your anchored projects, one tap away. -->
+        <div class="spheres">
+          {#each grouped.pinned as p (p.id)}{@render sphere(p)}{/each}
+        </div>
       {/if}
 
       {#if grouped.recent.length}
         <h2 class="section">Recent</h2>
         <ul class="list">
-          {#each grouped.recent.slice(0, 3) as p (p.id)}<li>{@render projectRow(p)}</li>{/each}
+          {#each grouped.recent.slice(0, 3) as p (p.id)}<li>{@render projectRow(p, lastUsed(p))}</li>{/each}
         </ul>
       {/if}
 
       {#if disciplines.length}
-        <h2 class="section">Disciplines</h2>
+        <h2 class="section">All projects</h2>
         <ul class="list">
           {#each disciplines as d (d.name)}
-            <li class="entry">
+            <li class="entry glass">
               <button class="entryhead" onclick={() => (openDiscipline = openDiscipline === d.name ? null : d.name)}>
-                <span>
+                <span class="grow">
                   <span class="name">{d.name}</span>
                   <span class="sub">{d.projects.length} project{d.projects.length === 1 ? "" : "s"}</span>
                 </span>
-                <span class="chev">{openDiscipline === d.name ? "▾" : "▸"}</span>
+                <span class="chev">{openDiscipline === d.name ? "⌄" : "›"}</span>
               </button>
               {#if openDiscipline === d.name}
                 <div class="entrybody">
                   <ul class="list nested">
-                    {#each d.projects as p (p.id)}<li>{@render projectRow(p)}</li>{/each}
+                    {#each d.projects as p (p.id)}<li>{@render projectRow(p, null)}</li>{/each}
                   </ul>
                 </div>
               {/if}
@@ -307,22 +360,19 @@
 <!-- ── 3. Already writing ───────────────────────────────────────────────────────────────── -->
 {:else if view === "compose"}
   <header>
-    <button class="ghost small" onclick={() => (view = "home")}>Back</button>
-    <strong>{kind === "task" ? "Add task" : "Add to inbox"}</strong>
-    <span class="spacer"></span>
+    <button class="circle" onclick={() => (view = "home")} aria-label="Back">‹</button>
+    <strong class="htitle">{kind === "task" ? "Add Task" : "Add Inbox"}</strong>
+    <span class="controls"><span class="circle ghostly"></span></span>
   </header>
   <main>
     {#if !project}
       <p class="hint">No projects yet. Open Nidus on your computer and press Sync.</p>
     {:else}
       <!-- The destination is already decided (last used) — one tap to change it. -->
-      <button class="destination" onclick={() => (view = "picker")}>
-        <span class="avatar" style="background:{hue(project.name)}">{initial(project.name)}</span>
-        <span class="grow">
-          <span class="name">{project.name}</span>
-          <span class="sub">{project.discipline}</span>
-        </span>
-        <span class="chev">Change</span>
+      <button class="destination glass" onclick={() => (view = "picker")}>
+        <ProjectIcon {project} size={34} />
+        <span class="grow"><span class="name">{project.name}</span></span>
+        <span class="chev">⌄</span>
       </button>
 
       {#if project.inbox && project.tasks}
@@ -336,11 +386,11 @@
         <label class="lbl" for="t">Task title</label>
         <input id="t" class="title" bind:value={title} placeholder="What needs to be done?" />
         <label class="lbl" for="n">Notes</label>
-        <textarea id="n" bind:value={body} rows="3" placeholder="Details, context, or steps…"></textarea>
+        <textarea id="n" bind:value={body} rows="4" placeholder="Details, context, or steps…"></textarea>
 
         {#if tags().length}
-          <label class="lbl" for="tags">Tags</label>
-          <div id="tags" class="tags">
+          <span class="lbl">Tags</span>
+          <div class="tags">
             {#each tags() as t (t.id)}
               <button class:active={chosenTags.includes(t.id)} onclick={() => toggleTag(t.id)}>{t.name}</button>
             {/each}
@@ -365,7 +415,7 @@
       {/if}
 
       <button class="primary wide" onclick={save} disabled={!canSave}>
-        {kind === "task" ? "Add task" : "Send to inbox"}
+        {kind === "task" ? "Add Task" : "Send to Inbox"}
       </button>
     {/if}
   </main>
@@ -373,104 +423,204 @@
 {/if}
 
 <style>
+  /* ── The Nidus design language ────────────────────────────────────────────────────────────
+     Same palette as the app (GlassStyle.swift): a contained warm→cool ambient gradient with a
+     blue bloom, and frosted glass surfaces floating on top of it. Dark is the default. */
+  :global(:root) {
+    --g1: #191a22; --g2: #141519; --g3: #1a1c28;
+    --bloom-a: #3a5bff3d; --bloom-b: #7e96ff2e;
+    --text: #eef1f7; --dim: #939cb2;
+    --glass: #ffffff0f; --glass-edge: #ffffff1f; --glass-strong: #ffffff17;
+    --field: #ffffff0a; --field-edge: #ffffff1c;
+    --sphere-edge: #ffffff4d; --sphere-glare: #ffffff40;
+    --accent: #6d8bff; --accent-soft: #3a5bff33;
+    --cta-a: #3f57d8; --cta-b: #6d5fce;
+    --blob-hi: #ffffff; --blob-mid: #e4eaf8; --blob-lo: #b9c6e6; --blob-glow: #93a6e055;
+    --danger: #ff9a9a; --scrim: #141519d1;
+    color-scheme: dark;
+  }
+  :global(:root[data-theme="light"]) {
+    --g1: #f2efea; --g2: #e8eaf4; --g3: #dfe4f4;
+    --bloom-a: #3a5bff2e; --bloom-b: #7e96ff24;
+    --text: #171a24; --dim: #616a80;
+    --glass: #ffffff8c; --glass-edge: #ffffffcc; --glass-strong: #ffffffa6;
+    --field: #ffffff99; --field-edge: #00000014;
+    --sphere-edge: #00000024; --sphere-glare: #ffffffcc;
+    --accent: #2f4be0; --accent-soft: #3a5bff26;
+    --cta-a: #4257de; --cta-b: #6f60d6;
+    --blob-hi: #4a5570; --blob-mid: #2c3345; --blob-lo: #171a24; --blob-glow: #6d7fbd44;
+    --danger: #c23b3b; --scrim: #e8eaf4cc;
+    color-scheme: light;
+  }
+
   :global(body) {
-    margin: 0; background: #12151f; color: #eef1f7;
+    margin: 0;
+    min-height: 100dvh;
+    color: var(--text);
     font: 16px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
+    /* The ambient gradient, blooms first so they read over the base wash. */
+    background:
+      radial-gradient(120% 70% at 92% 0%, var(--bloom-a), transparent 62%),
+      radial-gradient(100% 60% at 45% 70%, var(--bloom-b), transparent 66%),
+      linear-gradient(135deg, var(--g1), var(--g2) 52%, var(--g3));
+    background-attachment: fixed;
   }
   :global(*) { box-sizing: border-box; }
+
+  /* Glass: a translucent surface with a lit edge — never a flat grey panel. */
+  .glass {
+    background: var(--glass);
+    border: 1px solid var(--glass-edge);
+    -webkit-backdrop-filter: blur(22px) saturate(140%);
+    backdrop-filter: blur(22px) saturate(140%);
+    border-radius: 20px;
+  }
+  .pad { padding: 22px; max-width: 420px; }
+
   header {
-    display: flex; align-items: center; justify-content: space-between; gap: 8px;
-    padding: 14px 16px; position: sticky; top: 0; z-index: 5;
-    background: #12151fee; backdrop-filter: blur(8px); border-bottom: 1px solid #ffffff14;
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    padding: 16px; position: sticky; top: 0; z-index: 5;
+    -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px);
+    background: linear-gradient(to bottom, var(--scrim), transparent);
   }
-  .wordmark { font-size: 12px; letter-spacing: 3px; color: #8c94a8; font-weight: 600; }
-  .spacer { width: 54px; }
-  main { padding: 16px; padding-bottom: 48px; }
-  main.center { min-height: 100dvh; display: grid; place-items: center; }
-  .card { max-width: 420px; padding: 22px; background: #ffffff08; border: 1px solid #ffffff14; border-radius: 16px; }
+  .wordmark { font-size: 13px; letter-spacing: 3px; color: var(--dim); font-weight: 600; }
+  .htitle { font-size: 17px; font-weight: 600; }
+  .controls { display: flex; align-items: center; gap: 8px; }
+  /* The app's round icon buttons (IconButton.swift). */
+  .circle {
+    width: 38px; height: 38px; flex: none; border-radius: 50%;
+    display: grid; place-items: center; font-size: 17px; text-decoration: none;
+    color: var(--text); background: var(--glass); border: 1px solid var(--glass-edge);
+    -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+  }
+  .circle svg { width: 19px; height: 19px; }
+  .circle.ghostly { background: none; border-color: transparent;
+    -webkit-backdrop-filter: none; backdrop-filter: none; } /* balances the centred title */
+
+  main { padding: 4px 16px 48px; }
+  main.center { min-height: 100dvh; display: grid; place-items: center; padding: 16px; }
   h1 { font-size: 20px; margin: 0 0 8px; }
-  h1.big { font-size: 26px; line-height: 1.2; margin: 2px 0 20px; }
-  .greet { color: #8c94a8; margin: 6px 0 0; font-size: 14px; }
-  .section { font-size: 11px; letter-spacing: 1.4px; text-transform: uppercase; color: #8c94a8; margin: 22px 0 8px; font-weight: 600; }
-  p { color: #aab2c5; margin: 0 0 12px; }
-  .hint { font-size: 14px; color: #8c94a8; }
-  .error { color: #ff8080; font-size: 13px; }
-  .status { margin: 14px 0 0; font-size: 13px; color: #8c94a8; }
-  .lbl { display: block; font-size: 11px; letter-spacing: 1.2px; text-transform: uppercase; color: #8c94a8; margin: 14px 0 2px; font-weight: 600; }
-  input, textarea {
-    width: 100%; padding: 13px; margin: 4px 0; font: inherit; color: inherit;
-    background: #ffffff0d; border: 1px solid #ffffff1f; border-radius: 12px;
+  h1.big { font-size: 27px; line-height: 1.2; margin: 4px 0 22px; font-weight: 600; }
+  .greet {
+    color: var(--text); opacity: 0.7; margin: 8px 0 0; font-size: 15px;
+    text-decoration: underline; text-underline-offset: 3px;
   }
-  input.title { font-size: 17px; }
-  textarea.tall { min-height: 170px; }
-  input:focus, textarea:focus { outline: 2px solid #ff8a3d55; border-color: #ff8a3d; }
-  button { font: inherit; cursor: pointer; border-radius: 12px; border: 1px solid transparent; color: inherit; }
-  .primary { background: #ff8a3d; color: #1b1205; font-weight: 600; padding: 15px 18px; }
-  .primary:disabled { opacity: 0.4; }
-  .ghost { background: #ffffff0d; color: #dfe4ef; border-color: #ffffff1f; padding: 11px 14px; }
-  .ghost.small { padding: 7px 12px; font-size: 14px; }
-  .wide { width: 100%; margin-top: 14px; }
-  .ghost.danger { color: #ff9a9a; margin-top: 26px; }
-  .hero { display: grid; place-items: center; padding: 10px 0 2px; }
-  .blob { width: 96px; height: 72px; filter: drop-shadow(0 6px 26px #aebbe655); }
-  .cta {
-    width: 100%; display: grid; gap: 4px; text-align: left; padding: 20px;
-    background: linear-gradient(135deg, #4b5ad6, #6f5bd0); border: 1px solid #ffffff2a;
-    border-radius: 18px; box-shadow: 0 10px 30px #2a2f6a55;
+  .hero { display: grid; place-items: center; padding: 14px 0 4px; }
+  .section {
+    font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase;
+    color: var(--dim); margin: 26px 0 10px; font-weight: 600;
   }
-  .ctat { font-size: 18px; font-weight: 700; }
-  .ctad { font-size: 13px; color: #dfe3ff; }
-  .avatar {
-    width: 34px; height: 34px; flex: none; border-radius: 11px; display: grid; place-items: center;
-    font-size: 14px; font-weight: 700; color: #fff;
+  p { color: var(--dim); margin: 0 0 12px; }
+  a { color: var(--accent); }
+  .hint { font-size: 14px; }
+  .error { color: var(--danger); font-size: 13px; }
+  .status { font-size: 13px; color: var(--dim); }
+  .footer { display: flex; align-items: center; gap: 12px; margin-top: 26px; }
+
+  /* ── Capture choices ─────────────────────────────────────────────────────────────────── */
+  .choices { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .choice { display: grid; gap: 4px; text-align: left; padding: 18px 16px 16px; }
+  .badge { position: relative; display: inline-grid; place-items: center; width: 30px; height: 30px; margin-bottom: 8px; color: var(--text); }
+  .badge svg { width: 27px; height: 27px; }
+  /* The "+" that makes these read as CREATE, not as a section header. */
+  .plus {
+    position: absolute; right: -7px; bottom: -4px; width: 16px; height: 16px; border-radius: 50%;
+    display: grid; place-items: center; font-size: 12px; font-weight: 700; line-height: 1;
+    background: var(--accent); color: #fff;
+  }
+  .choice .ct { font-size: 16px; font-weight: 600; }
+  .choice .cd { font-size: 12.5px; color: var(--dim); line-height: 1.35; }
+
+  /* ── Rows, spheres, lists ────────────────────────────────────────────────────────────── */
+  .list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+  .row {
+    width: 100%; display: flex; align-items: center; gap: 12px; text-align: left; padding: 11px 14px;
+    background: var(--glass); border: 1px solid var(--glass-edge); border-radius: 16px;
+    -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px);
   }
   .grow { flex: 1; min-width: 0; }
-  .prow { display: flex; align-items: center; gap: 11px; }
-  .choices { display: grid; gap: 12px; }
-  .choice {
-    display: grid; gap: 3px; text-align: left; padding: 18px;
-    background: #ffffff0a; border: 1px solid #ffffff17; border-radius: 16px;
-  }
-  .choice .ico { font-size: 20px; color: #ff8a3d; }
-  .choice .ct { font-size: 17px; font-weight: 600; }
-  .choice .cd { font-size: 13px; color: #8c94a8; }
-  .destination {
-    width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 10px;
-    padding: 14px; background: #ffffff0d; border: 1px solid #ffffff1f; border-radius: 14px; text-align: left;
-  }
-  .destination .chev { font-size: 13px; color: #ff8a3d; font-weight: 600; }
-  .list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
-  .list button, .record {
-    width: 100%; text-align: left; padding: 14px; background: #ffffff0a;
-    border: 1px solid #ffffff14; border-radius: 14px;
-  }
-  .record { display: flex; align-items: center; gap: 11px; }
-  .record.dim { opacity: 0.55; }
-  .entry { background: #ffffff0a; border: 1px solid #ffffff14; border-radius: 14px; overflow: hidden; }
-  .entryhead {
-    width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 10px;
-    padding: 14px; background: none; border: none; text-align: left; border-radius: 0;
-  }
-  .entryhead .chev { color: #8c94a8; font-size: 13px; }
-  .entrybody { padding: 0 14px 14px; border-top: 1px solid #ffffff0f; }
-  .excerpt { font-size: 14px; color: #aab2c5; margin: 10px 0 0; white-space: pre-wrap; }
-  .meta { font-size: 12px; color: #8c94a8; margin: 8px 0 0; }
-  .entryactions { display: flex; gap: 8px; margin-top: 12px; }
-  .ghost.danger { color: #ff9a9a; }
   .name { display: block; font-weight: 600; }
-  .sub { display: block; font-size: 12px; color: #8c94a8; margin-top: 2px; }
-  .segmented { display: flex; gap: 6px; margin: 12px 0; }
-  .segmented button { flex: 1; padding: 11px; background: #ffffff0d; border: 1px solid #ffffff1f; color: #cfd6e6; }
-  .segmented button.active { background: #ff8a3d; color: #1b1205; font-weight: 600; border-color: #ff8a3d; }
-  .segmented.small button { padding: 8px; font-size: 13px; text-transform: capitalize; }
-  .tags { display: flex; flex-wrap: wrap; gap: 6px; }
-  .tags button { padding: 8px 13px; font-size: 14px; background: #ffffff0d; border: 1px solid #ffffff1f; color: #cfd6e6; }
-  .tags button.active { background: #ff8a3d; color: #1b1205; border-color: #ff8a3d; }
-  details summary { cursor: pointer; color: #aab2c5; font-size: 15px; margin-bottom: 8px; }
-  .search { margin-bottom: 4px; }
-  .log { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
-  .log li { font-size: 13px; color: #cfd6e6; padding: 2px 0; }
-  .log .sub { display: inline; font-size: 12px; }
+  .sub { display: block; font-size: 12.5px; color: var(--dim); margin-top: 2px; }
+  .chev { color: var(--dim); font-size: 18px; }
+  .pin { color: var(--accent); font-size: 15px; }
+
+  .spheres { display: flex; flex-wrap: wrap; gap: 6px; }
+  .sphere {
+    background: none; border: none; padding: 4px; width: 96px;
+    display: grid; justify-items: center; gap: 9px;
+  }
+  .spherelabel { font-size: 13px; color: var(--dim); line-height: 1.25; }
+
+  .entry { overflow: hidden; }
+  .entryhead {
+    width: 100%; display: flex; align-items: center; gap: 10px;
+    padding: 13px 14px; background: none; border: none; text-align: left; border-radius: 0;
+  }
+  .entrybody { padding: 0 14px 14px; border-top: 1px solid var(--glass-strong); }
+  .excerpt { font-size: 14px; color: var(--dim); margin: 11px 0 0; white-space: pre-wrap; }
+  .meta { font-size: 12px; color: var(--dim); margin: 8px 0 0; }
+  .entryactions { display: flex; gap: 8px; margin-top: 12px; }
   .list.nested { margin-top: 10px; }
+  .log { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+  .log li { font-size: 13px; color: var(--text); opacity: 0.85; padding: 2px 0; }
+  .log .sub { display: inline; font-size: 12px; }
+
+  /* ── Fields ──────────────────────────────────────────────────────────────────────────── */
+  .lbl {
+    display: block; font-size: 11px; letter-spacing: 1.3px; text-transform: uppercase;
+    color: var(--dim); margin: 18px 0 6px; font-weight: 600;
+  }
+  input, textarea {
+    width: 100%; padding: 14px; font: inherit; color: inherit;
+    background: var(--field); border: 1px solid var(--field-edge); border-radius: 14px;
+    -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+  }
+  /* Left alone on purpose: iOS then gives the real system date wheel on tap. */
+  input[type="date"] { min-height: 51px; text-align: left; }
+  input.title { font-size: 17px; }
+  textarea { resize: vertical; }
+  textarea.tall { min-height: 210px; }
+  input:focus, textarea:focus {
+    outline: none; border-color: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft);
+  }
+  ::placeholder { color: var(--dim); opacity: 0.85; }
+
+  .searchwrap { position: relative; display: flex; align-items: center; }
+  .searchicon { position: absolute; left: 16px; width: 18px; height: 18px; color: var(--dim); pointer-events: none; }
+  .search { padding-left: 44px; border-radius: 999px; }
+
+  /* ── Buttons ─────────────────────────────────────────────────────────────────────────── */
+  button { font: inherit; cursor: pointer; border-radius: 14px; border: 1px solid transparent; color: inherit; }
+  .primary {
+    background: linear-gradient(135deg, var(--cta-a), var(--cta-b));
+    border-color: #ffffff2e; color: #fff; font-weight: 600; padding: 17px 18px; font-size: 16px;
+    box-shadow: 0 12px 30px #2a2f6a4d;
+  }
+  .primary:disabled { opacity: 0.4; box-shadow: none; }
+  .ghost {
+    background: var(--glass); color: var(--text); border-color: var(--glass-edge); padding: 12px 15px;
+    -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+  }
+  .ghost.small { padding: 8px 13px; font-size: 14px; }
+  .ghost.danger { color: var(--danger); }
+  .wide { width: 100%; margin-top: 22px; }
+  .destination {
+    width: 100%; display: flex; align-items: center; gap: 12px;
+    padding: 11px 14px; text-align: left; border-radius: 16px;
+  }
+  .segmented { display: flex; gap: 6px; margin: 14px 0 0; }
+  .segmented button {
+    flex: 1; padding: 12px; background: var(--field); border: 1px solid var(--field-edge); color: var(--dim);
+  }
+  .segmented button.active { background: var(--accent); color: #fff; font-weight: 600; border-color: transparent; }
+  .segmented.small { margin-top: 10px; }
+  .segmented.small button { padding: 9px; font-size: 13px; text-transform: capitalize; }
+  .tags { display: flex; flex-wrap: wrap; gap: 6px; }
+  .tags button {
+    padding: 9px 14px; font-size: 14px; border-radius: 999px;
+    background: var(--field); border: 1px solid var(--field-edge); color: var(--dim);
+  }
+  .tags button.active { background: var(--accent); color: #fff; border-color: transparent; }
+  details summary { cursor: pointer; color: var(--dim); font-size: 15px; margin-bottom: 8px; }
 </style>

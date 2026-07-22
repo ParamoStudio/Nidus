@@ -53,10 +53,11 @@
       <feColorMatrix in="blur" mode="matrix"
         values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 26 -11" result="goo" />
     </filter>
+    <!-- Themed: near-white in dark, near-black in light — the same contrast rule MetaballView uses. -->
     <radialGradient id="nidus-sheen" cx="36%" cy="30%">
-      <stop offset="0%" stop-color="#ffffff" />
-      <stop offset="70%" stop-color="#e4eaf8" />
-      <stop offset="100%" stop-color="#b9c6e6" />
+      <stop offset="0%" stop-color="var(--blob-hi)" />
+      <stop offset="70%" stop-color="var(--blob-mid)" />
+      <stop offset="100%" stop-color="var(--blob-lo)" />
     </radialGradient>
   </defs>
   <g filter="url(#nidus-goo)" fill="url(#nidus-sheen)">
@@ -68,5 +69,5 @@
 </svg>
 
 <style>
-  .metaball { display: block; filter: drop-shadow(0 8px 30px #93a6e055); }
+  .metaball { display: block; filter: drop-shadow(0 8px 30px var(--blob-glow)); }
 </style>

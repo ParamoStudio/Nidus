@@ -19,6 +19,11 @@ import CoreImage
 import CoreImage.CIFilterBuiltins
 import CryptoKit
 import SwiftUI
+#if os(macOS)
+import AppKit
+#else
+import UIKit
+#endif
 
 enum BridgeConfig {
     /// Where the phone web app is served from. The QR points here with the pairing in the hash.
@@ -108,11 +113,15 @@ final class PhoneBridge {
         // Hash only the STABLE part: a `pushedAt` timestamp inside it would change every time and the
         // dirty flag would never fire. SHA256, not hashValue — Swift seeds Hasher per process, so
         // hashValue would differ on every launch and we'd re-push the same payload forever.
-        let stable = referencePayload(model)
+        // The hash sees each icon's IDENTITY, never its rendered pixels: a metaball is animated, so
+        // snapshotting it would differ frame to frame and we'd re-push forever.
+        var stable = referencePayload(model)
         guard let stableData = try? JSONSerialization.data(withJSONObject: stable, options: [.sortedKeys]) else { return false }
         let hash = SHA256.hash(data: stableData).map { String(format: "%02x", $0) }.joined()
         if !force, defaults.string(forKey: pushedHashKey) == hash { return true }   // unchanged
 
+        // Only now (we're actually sending) is it worth rendering the glyphs.
+        stable["projects"] = withRenderedIcons(stable["projects"] as? [[String: Any]] ?? [], model)
         var body = stable
         body["pushedAt"] = ISO8601DateFormatter().string(from: Date())
         guard let data = try? JSONSerialization.data(withJSONObject: body) else { return false }
@@ -135,12 +144,68 @@ final class PhoneBridge {
                 "inbox": grid.contains { $0.tool == "inbox" },
                 "tasks": grid.contains { $0.tool == "task-manager" },
                 "pinned": pinned.contains(hit.project.id),   // the phone mirrors your pinned set
+                "iconKey": iconKey(hit, model),              // swapped for the rendered glyph at send time
             ])
         }
         let tags = (model.config?.tags ?? []).map { ["id": $0.id, "name": $0.name] }
         // The name you set in the Greeting, so the phone can greet you the same way.
         let userName = defaults.string(forKey: "nidus.userName") ?? ""
         return ["v": 1, "projects": projects, "tags": tags, "userName": userName]   // `pushedAt` added at send time
+    }
+
+    // MARK: Project glyphs
+
+    /// What identifies an icon for the dirty flag. For an imported image the name never changes, so the
+    /// file's modification date stands in — otherwise replacing a logo would never reach the phone.
+    private func iconKey(_ hit: ProjectHit, _ model: NidusModel) -> String {
+        let icon = hit.project.icon ?? Project.defaultIcon
+        guard icon == "image",
+              let url = model.projectFolderURL(hit.ref)?.appendingPathComponent(ProjectGlyph.imageFileName),
+              let stamp = (try? url.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate
+        else { return icon }
+        return "image@\(stamp.timeIntervalSince1970)"
+    }
+
+    /// Swaps each project's `iconKey` for the glyph Nidus actually draws, rendered once here rather
+    /// than reimplemented on the phone: metaballs, Bauhaus glyphs, bundled icons and imported logos all
+    /// come out of the same view, so the phone can never drift from the app.
+    ///
+    /// A WHITE silhouette on transparency — the phone uses it as a CSS mask and tints it with the
+    /// current text colour, so one image serves both light and dark appearance.
+    private func withRenderedIcons(_ projects: [[String: Any]], _ model: NidusModel) -> [[String: Any]] {
+        let byID = Dictionary(model.allProjects.map { ($0.project.id, $0) }, uniquingKeysWith: { a, _ in a })
+        return projects.map { entry in
+            var entry = entry
+            entry.removeValue(forKey: "iconKey")
+            if let id = entry["id"] as? String, let hit = byID[id], let png = renderGlyph(hit, model) {
+                entry["icon"] = png
+            }
+            return entry
+        }
+    }
+
+    private func renderGlyph(_ hit: ProjectHit, _ model: NidusModel) -> String? {
+        let glyph = ProjectGlyph(icon: hit.project.icon ?? Project.defaultIcon, size: 64,
+                                 folderURL: model.projectFolderURL(hit.ref),
+                                 monochrome: true, circled: false)
+            .frame(width: 64, height: 64)
+            // Dark scheme is what makes every glyph resolve to near-white; only the alpha survives
+            // into the mask anyway.
+            .environment(\.colorScheme, .dark)
+        let renderer = ImageRenderer(content: glyph)
+        renderer.scale = 2
+        renderer.isOpaque = false
+        #if os(macOS)
+        guard let cg = renderer.cgImage,
+              let png = NSBitmapImageRep(cgImage: cg).representation(using: .png, properties: [:])
+        else { return nil }
+        #else
+        guard let png = renderer.uiImage?.pngData() else { return nil }
+        #endif
+        // A stray huge asset would bloat every phone sync; the glyph is a 128px silhouette, so this
+        // only ever trips on something pathological.
+        guard png.count < 60_000 else { return nil }
+        return "data:image/png;base64," + png.base64EncodedString()
     }
 
     // MARK: Pull (captures → the real `.md` files)

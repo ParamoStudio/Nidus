@@ -5,6 +5,36 @@ Formato humano. La extensión Raycast lleva su propio changelog aparte (otro cod
 
 ---
 
+## Fase 12.1 · El lenguaje de diseño de Nidus en el móvil · Miércoles, 22 de julio de 2026
+
+La estructura de la PWA estaba bien, pero estéticamente no era Nidus: paneles grises planos, acento naranja
+que la app no usa, e iniciales de colores en cuadraditos donde deberían ir los iconos reales. Pasada completa
+de lenguaje visual, con la app como única fuente de verdad.
+
+- **Iconos reales de proyecto.** Nidus renderiza cada glifo con `ImageRenderer` (metaball, Bauhaus, iconos
+  del bundle, logo importado — todos salen de `ProjectGlyph`, la misma vista que dibuja el escritorio) y lo
+  manda como silueta blanca. El teléfono la pinta como **máscara CSS** teñida con `currentColor`, así que una
+  sola imagen sirve para claro y oscuro. El móvil no reimplementa nada: no puede desviarse de la app.
+  - El *dirty flag* hashea la **identidad** del icono, nunca sus píxeles: un metaball está animado y capturarlo
+    daría un hash distinto cada vez (re-push infinito). Para un logo importado la identidad lleva la fecha de
+    modificación del fichero, o cambiarlo nunca llegaría al teléfono.
+  - Los glifos se renderizan **después** de comprobar el dirty flag: si no hay nada que mandar, no se dibuja nada.
+- **Cristal, no paneles grises.** Superficies translúcidas con `backdrop-filter` y borde iluminado sobre el
+  gradiente ambiente de `GlassStyle.swift` (mismos stops warm→cool + bloom azul), botones redondos tipo
+  `IconButton`, y los círculos de proyecto con el borde tenue y el brillo superior de `SphereView`.
+- **Acento azul Nidus** (`#3A5BFF`) en vez del naranja: la app nunca fue naranja.
+- **Claro/oscuro** con el toggle luna/sol en la cabecera, oscuro de serie (se captura a una mano, y a menudo
+  de noche). Vive en el elemento raíz, así que el fondo de la página cambia con él.
+- **Landing** — dos tarjetas *New Inbox* / *New Task* con icono, `+` y descripción, en vez del CTA único.
+- **Picker** — anclados como fila de esferas de cristal (igual que el Greeting Panel), recientes como filas
+  con *"Last used…"* (se guarda la marca de tiempo por proyecto), y el resto plegado por disciplina.
+- **Compose** — campos más altos y con aire, etiquetas en versalitas, `input[type=date]` sin tocar su
+  apariencia a propósito: así iOS da la rueda de fecha nativa.
+- Verificado en navegador a 402×874 en los dos temas antes de publicar. Build de la PWA sin avisos, 7/7 tests
+  del códec de emparejamiento, build macOS verde.
+
+---
+
 ## Fase 12 · Captura desde el móvil (pairing + relay + PWA) · Lunes, 13 de julio de 2026
 
 Capturar ideas/tareas en cualquier proyecto desde el teléfono cuando no estás en el ordenador, como con

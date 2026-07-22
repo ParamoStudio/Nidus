@@ -13,7 +13,9 @@ const LS = {
   reference: "nidus.reference",
   records: "nidus.records",
   recent: "nidus.recentProjects",
+  usedAt: "nidus.usedAt",
   history: "nidus.history",
+  theme: "nidus.theme",
 };
 
 function load(key, fallback) {
@@ -35,10 +37,20 @@ export const app = $state({
   reference: load(LS.reference, null), // { projects, tags, pushedAt }
   records: load(LS.records, []), // local queue, still to be collected
   recent: load(LS.recent, []), // project ids, most recently captured-into first
+  usedAt: load(LS.usedAt, {}), // project id → ISO of the last capture into it
   history: load(LS.history, []), // the last few captures Nidus has already filed
+  // Dark is the default: this is a capture tool, most often opened one-handed and often at night.
+  theme: localStorage.getItem(LS.theme) === "light" ? "light" : "dark",
   status: "",
   busy: false,
 });
+
+export function toggleTheme() {
+  app.theme = app.theme === "dark" ? "light" : "dark";
+  try {
+    localStorage.setItem(LS.theme, app.theme);
+  } catch {}
+}
 
 const persistRecords = () => save(LS.records, app.records);
 // A receipt, not a feature: just enough to confirm the last few captures landed. Anything you actually
@@ -53,7 +65,9 @@ export function defaultProject() {
 
 export function noteProjectUsed(id) {
   app.recent = [id, ...app.recent.filter((x) => x !== id)].slice(0, 8);
+  app.usedAt = { ...app.usedAt, [id]: new Date().toISOString() };
   save(LS.recent, app.recent);
+  save(LS.usedAt, app.usedAt);
 }
 
 /** Projects split the way the capture flow wants them: pinned, recently used, then the rest. */
