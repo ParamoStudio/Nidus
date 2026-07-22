@@ -23,7 +23,9 @@ export default defineConfig({
         icons: [
           { src: "icon-192.png", sizes: "192x192", type: "image/png" },
           { src: "icon-512.png", sizes: "512x512", type: "image/png" },
-          { src: "icon-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
+          // A maskable icon has its edges cropped to whatever shape the OS wants, so it needs its own
+          // version with margin — reusing the full-bleed one would shave the artwork's own rounded edge.
+          { src: "icon-512-maskable.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
         ],
       },
       workbox: { globPatterns: ["**/*.{js,css,html,png,svg,ico}"] },

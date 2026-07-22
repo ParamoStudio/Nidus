@@ -20,6 +20,9 @@ Everything else follows from that:
 - **Tools own their own data, never yours.** A tool writes its own `extra` fields and its own title.
   It never rewrites a card's body — so a note you wrote by hand survives a tool it was never made for.
 - **Nothing happens behind your back.** No background upload, no sync service, no "smart" reorganising.
+  Nidus makes exactly one network request of its own: once a day it asks GitHub whether a newer release
+  exists, and tells you if so. It sends nothing, identifies nobody, and never updates itself — you get a
+  link. Right-click the notice to turn the check off for good.
 - **Leaving is free.** Delete the app and the folders are still folders.
 
 ## Requirements
@@ -57,6 +60,39 @@ git clone https://github.com/ParamoStudio/Nidus.git
 
 Open `Nidus.xcodeproj` in Xcode 26 or later, pick the **Nidus** scheme, and run. No dependencies, no
 package manager, no build script — it's a plain SwiftUI project.
+
+## Keyboard
+
+The workspace is meant to be driven without reaching for the mouse. Plain letters are shortcuts on
+purpose — they only fire when nothing is focused, so they can never leak into something you're typing.
+
+| | |
+|---|---|
+| `⌘E` | **Customize.** Rearrange, resize, add and remove tools; edit the project itself (name, icon, description, discipline, linked folder); and set each tool's hotkey. |
+| `F` | Search this project |
+| `⌘F` | Search every project |
+| `Space` | Open the card the cursor is over |
+| `Esc` | Close whatever is open |
+| `⌘N` | New window — a fresh Greeting Panel |
+| `⌘W` | Close the window |
+
+### Tool hotkeys are yours
+
+Each tool declares a **quick action** on a single key, and every tool on your grid can be rebound:
+open Customize (`⌘E`) and set the letter you want. The defaults are:
+
+| | |
+|---|---|
+| `T` | Quick Task → Task Manager |
+| `I` | Quick Idea → Ideas |
+| `N` | New Note → Notebook |
+
+The binding lives on the **instance**, not the tool, so two copies of the same tool can answer to
+different keys — a second Notebook for glaze tests can be `G` while the main one stays `N`. Tools you
+install from a file bring their own default key, and it's rebindable exactly the same way.
+
+Where a hotkey takes you depends on what the tool is: Task Manager and Ideas open a one-line quick-add,
+Notebook drops you straight into a new note, and an installed tool opens its expanded view.
 
 ## Capture from your phone
 

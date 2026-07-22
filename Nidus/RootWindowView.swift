@@ -13,6 +13,7 @@ struct RootWindowView: View {
     @Environment(NidusModel.self) private var model
     @Environment(ThemeController.self) private var theme
     @Environment(PhoneBridge.self) private var bridge
+    @Environment(UpdateChecker.self) private var updates
     @Environment(\.scenePhase) private var scenePhase
     @State private var openProject: ProjectRef?
 
@@ -34,6 +35,7 @@ struct RootWindowView: View {
         .onChange(of: scenePhase) { _, phase in
             guard phase == .active else { return }
             model.notifyFileChange()
+            Task { await updates.checkIfDue() }   // at most once a day; silent when up to date
             guard bridge.isConfigured else { return }
             Task {
                 await bridge.pullUp(model)

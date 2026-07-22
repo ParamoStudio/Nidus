@@ -18,6 +18,8 @@ struct NidusApp: App {
     @State private var theme = ThemeController()
     /// Phone pairing + capture sync (see PhoneBridge.swift). App-wide: one pairing per vault/device.
     @State private var bridge = PhoneBridge()
+    /// Checks GitHub for a newer release on open (see UpdateChecker.swift). Never updates anything.
+    @State private var updates = UpdateChecker()
 
     init() {
         #if os(macOS)
@@ -34,6 +36,7 @@ struct NidusApp: App {
                 .environment(model)
                 .environment(theme)
                 .environment(bridge)
+                .environment(updates)
         }
         #if os(macOS)
         .windowStyle(.hiddenTitleBar)

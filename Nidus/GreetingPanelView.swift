@@ -17,6 +17,7 @@ import AppKit
 struct GreetingPanelView: View {
     @Environment(NidusModel.self) private var model
     @Environment(\.openURL) private var openURL
+    @Environment(UpdateChecker.self) private var updates
     /// Opens a project in this window (Greeting → Workspace, same surface).
     let onOpen: (ProjectRef) -> Void
 
@@ -71,6 +72,7 @@ struct GreetingPanelView: View {
                 .transition(.opacity)
             }
             Spacer(minLength: 16)
+            updateBanner
         }
         .padding(.top, 22)
         .padding(.horizontal, 22)
@@ -79,6 +81,43 @@ struct GreetingPanelView: View {
         .animation(.easeInOut(duration: 0.28), value: isSearching)
         .onAppear { searchFocused = true }
         .onChange(of: query) { _, _ in selectedIndex = 0 }
+    }
+
+    // MARK: - Update notice
+
+    /// Only ever appears when there IS a newer release: an up-to-date app should say nothing rather
+    /// than reassure you. It links out — Nidus never rewrites its own binary.
+    @ViewBuilder
+    private var updateBanner: some View {
+        if let update = updates.available {
+            HStack(spacing: 10) {
+                Image(systemName: "arrow.down.circle")
+                    .foregroundStyle(blue)
+                Text("Nidus \(update.version) is available")
+                    .font(.callout)
+                Spacer()
+                Button("Get it") { openURL(update.url) }
+                    .buttonStyle(.plain)
+                    .font(.callout.weight(.semibold))
+                    .foregroundStyle(blue)
+                Button {
+                    withAnimation(.easeInOut(duration: 0.25)) { updates.skip() }
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .help("Stop mentioning this version")
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .glassCard(cornerRadius: NidusRadius.inner)
+            .contextMenu {
+                Button("Never check for updates") { updates.enabled = false }
+            }
+            .transition(.move(edge: .bottom).combined(with: .opacity))
+        }
     }
 
     // MARK: - Top row: NIDUS (left) + controls (right)

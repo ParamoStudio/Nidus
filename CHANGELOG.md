@@ -5,6 +5,35 @@ Formato humano. La extensión Raycast lleva su propio changelog aparte (otro cod
 
 ---
 
+## v1.0.1 · Icono, aviso de actualización y atajos documentados · Miércoles, 22 de julio de 2026
+
+Tres cosas que el usuario detectó mirando la release publicada.
+
+- **El icono nunca llegó a la app.** `AppIcon.appiconset/Contents.json` era el andamiaje vacío de Xcode:
+  trece slots declarados y **ni un solo `filename`**. Compilaba sin un aviso y sin `.icns` en el bundle, así
+  que el fallo era completamente silencioso. Ahora `nidusicon1024x1024.png` genera los diez tamaños de macOS
+  (un fichero por slot) más el de iOS, y las tres versiones opacas de la PWA.
+  - Ojo con el diagnóstico: el `.icns` del bundle SOLO trae cuatro tamaños y eso **no es el bug**. En macOS 26
+    el icono real vive en `Assets.car` (vía `CFBundleIconName`) — ahí están los diez. El `.icns` es un fallback
+    heredado. Verificado renderizando el icono con `NSWorkspace.icon(forFile:)`, que es literalmente lo que
+    dibujan Finder y el Dock: correcto, y el sistema le pone su propio margen y sombra.
+- **Aviso de versión nueva (`UpdateChecker.swift`).** Al activarse la ventana, como mucho una vez al día,
+  Nidus le pregunta a la API pública de GitHub si hay release más reciente y, si la hay, muestra una tira
+  discreta en el Greeting Panel con enlace. **No se actualiza solo** — Nidus es un `.app` que moviste tú a
+  Aplicaciones, y una app que se reescribe el binario sola es justo lo que este proyecto no hace. No manda
+  nada, no identifica a nadie, la × silencia esa versión y el menú contextual apaga la comprobación para
+  siempre. Comparación de versiones numérica y por componentes, con tests (4/4): `1.10` es posterior a `1.9`,
+  y `1.1.0` no es una versión nueva para quien tiene `1.1`.
+- **Atajos en el README.** Faltaban por completo. Documentados contra el código, no de memoria: `⌘E`
+  Customize, `F` / `⌘F` buscar, `Espacio` abrir la card bajo el cursor, `Esc`, `⌘N`, `⌘W`, y las quick
+  actions por herramienta (`T` tarea, `I` idea, `N` nota) **reasignables por instancia** desde Customize —
+  dos copias de la misma herramienta pueden responder a teclas distintas.
+
+*(Nota: quien esté en 1.0 no recibirá aviso de esta versión, porque 1.0 aún no llevaba el comprobador.
+Funciona de 1.0.1 en adelante.)*
+
+---
+
 ## Fase 12.3 · Borrar en el móvil borra de verdad · Miércoles, 22 de julio de 2026
 
 **Bug real, encontrado usándolo.** Creas una tarea → se sincroniza → la borras en el móvil → abres Nidus y
