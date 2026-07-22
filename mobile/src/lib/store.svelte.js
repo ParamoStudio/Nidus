@@ -8,7 +8,13 @@
 
 import { parsePairHash, decodePairInput } from "./paircode.js";
 
-const LS = { pairing: "nidus.pairing", reference: "nidus.reference", records: "nidus.records" };
+const LS = {
+  pairing: "nidus.pairing",
+  reference: "nidus.reference",
+  records: "nidus.records",
+  recent: "nidus.recentProjects",
+  history: "nidus.history",
+};
 
 function load(key, fallback) {
   try {
@@ -27,12 +33,35 @@ function save(key, value) {
 export const app = $state({
   pairing: load(LS.pairing, null), // { token, base }
   reference: load(LS.reference, null), // { projects, tags, pushedAt }
-  records: load(LS.records, []), // local queue
+  records: load(LS.records, []), // local queue, still to be collected
+  recent: load(LS.recent, []), // project ids, most recently captured-into first
+  history: load(LS.history, []), // the last few captures Nidus has already filed
   status: "",
   busy: false,
 });
 
 const persistRecords = () => save(LS.records, app.records);
+const HISTORY_MAX = 8;
+
+/** The project a new capture defaults to: whatever you used last, if it still exists. */
+export function defaultProject() {
+  const all = projects();
+  return all.find((p) => p.id === app.recent[0]) || all[0] || null;
+}
+
+export function noteProjectUsed(id) {
+  app.recent = [id, ...app.recent.filter((x) => x !== id)].slice(0, 8);
+  save(LS.recent, app.recent);
+}
+
+/** Projects split the way the capture flow wants them: pinned, recently used, then the rest. */
+export function groupedProjects() {
+  const all = projects();
+  const pinned = all.filter((p) => p.pinned);
+  const recent = app.recent.map((id) => all.find((p) => p.id === id)).filter((p) => p && !p.pinned);
+  const rest = all.filter((p) => !p.pinned && !recent.includes(p));
+  return { pinned, recent, rest };
+}
 
 // ---- pairing ------------------------------------------------------------------------------------
 
@@ -150,6 +179,10 @@ export async function sync() {
     if (collected.length) {
       app.records = app.records.filter((r) => !(r.sent && !stillWaiting.has(r.id)));
       persistRecords();
+      // Keep a short local trail of what Nidus took, so the landing screen can show recent activity.
+      app.history = [...collected.map((r) => ({ ...r, filedAt: new Date().toISOString() })), ...app.history]
+        .slice(0, HISTORY_MAX);
+      save(LS.history, app.history);
     }
 
     const waiting = app.records.length;

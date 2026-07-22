@@ -64,7 +64,16 @@ export default {
     // Validate BEFORE touching KV, so a malformed path can never create junk keys.
     if (!TOKEN_RE.test(token)) return json({ error: "bad_token" }, 400);
     if (box !== "down" && box !== "up") return json({ error: "not_found" }, 404);
-    if (!env.NIDUS_RELAY) return json({ error: "kv_not_bound", hint: "Bind a KV namespace named NIDUS_RELAY" }, 500);
+    // Creating a KV namespace is not enough — it has to be BOUND to this worker under this exact
+    // variable name, and the worker redeployed. Report which bindings actually arrived, so a name
+    // mismatch is obvious instead of mysterious. (Names only, and this worker has no secrets.)
+    if (!env.NIDUS_RELAY) {
+      return json({
+        error: "kv_not_bound",
+        hint: "Bind a KV namespace to the variable name NIDUS_RELAY, then deploy again.",
+        bindingsSeen: Object.keys(env || {}),
+      }, 500);
+    }
 
     const key = `${box}:${token}`;
 

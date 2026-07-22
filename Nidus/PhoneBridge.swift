@@ -110,6 +110,7 @@ final class PhoneBridge {
 
     private func referencePayload(_ model: NidusModel) -> [String: Any] {
         var projects: [[String: Any]] = []
+        let pinned = Set(model.config?.pinnedProjects ?? [])
         for hit in model.allProjects where ProjectStatus(hit.project.status) == .active {
             let grid = hit.project.layout?.grid ?? []
             projects.append([
@@ -118,6 +119,7 @@ final class PhoneBridge {
                 "discipline": hit.discipline.name,
                 "inbox": grid.contains { $0.tool == "inbox" },
                 "tasks": grid.contains { $0.tool == "task-manager" },
+                "pinned": pinned.contains(hit.project.id),   // the phone mirrors your pinned set
             ])
         }
         let tags = (model.config?.tags ?? []).map { ["id": $0.id, "name": $0.name] }
