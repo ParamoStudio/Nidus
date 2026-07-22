@@ -6,6 +6,11 @@ Local-first. Open source. No account, no subscription, no telemetry.
 Nidus is where a project lives before, during and after it is a project: a folder you own, a
 workspace you arrange, and a set of tools that only ever touch what belongs to them.
 
+It comes with three ways in, because ideas don't wait for you to be at the right screen:
+the **[macOS app](#install)**, a **[Raycast extension](#capture-from-raycast)** for capturing without
+leaving what you're doing, and a **[phone web app](#capture-from-your-phone)** for when you're nowhere
+near the computer. All three write to the same Markdown files.
+
 ---
 
 ## The one idea
@@ -94,6 +99,40 @@ install from a file bring their own default key, and it's rebindable exactly the
 Where a hotkey takes you depends on what the tool is: Task Manager and Ideas open a one-line quick-add,
 Notebook drops you straight into a new note, and an installed tool opens its expanded view.
 
+## Capture from Raycast
+
+If you use [Raycast](https://raycast.com), Nidus comes with an extension for the other half of the
+same problem: an idea arrives while you're doing something else, and you want it in the right project
+without opening the app and losing your thread.
+
+Open Raycast → **Nidus: Capture** → find the project → type. The card lands in that project's Inbox
+looking exactly like one typed inside Nidus.
+
+```text
+Try more silica -- It may reduce crazing without losing too much of the matte surface
+```
+
+Everything before `--` becomes the card's title, everything after it the body. Prefix with `t- ` to
+send it to the project's Task Manager instead. Projects can be given short aliases, so `gl ` jumps
+straight into Glaze Lab. It finds your vault on its own; there's a preference if you keep it somewhere
+unusual.
+
+It writes to the same Markdown files the app does — no service in between, nothing to keep running.
+
+**Installing it** ([`raycast/`](raycast/)) — it isn't on the Raycast Store yet, so this is the manual
+route:
+
+```bash
+git clone https://github.com/ParamoStudio/Nidus.git
+cd Nidus/raycast
+npm install
+npm run dev
+```
+
+Then open Raycast's **Import Extension** command and select that `raycast` folder. `npm run dev` keeps
+it running with hot reload while you have the terminal open; once imported it stays in your Raycast.
+Locally imported extensions are yours to manage — they don't auto-update from the Store.
+
 ## Capture from your phone
 
 Nidus pairs with a small web app so an idea or a task can reach the right project while you're away
@@ -116,6 +155,7 @@ of project names, so you can pick one.
 | | |
 |---|---|
 | `Nidus/` | The macOS + iPadOS app (SwiftUI) |
+| `raycast/` | The Raycast capture extension — [README](raycast/README.md) |
 | `mobile/` | The phone capture PWA (Svelte 5) — [README](mobile/README.md) |
 | `relay/` | The Cloudflare Worker mailbox — [README](relay/README.md) |
 | `CHANGELOG.md` | What was built and why, stretch by stretch (in Spanish) |

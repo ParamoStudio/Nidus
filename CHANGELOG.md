@@ -5,6 +5,31 @@ Formato humano. La extensión Raycast lleva su propio changelog aparte (otro cod
 
 ---
 
+## La extensión de Raycast entra al repo · Miércoles, 22 de julio de 2026
+
+Estaba construida y funcionando desde el 9 de julio, pero vivía **fuera del repo**: ni en el README ni en
+Releases. Existía sin ser encontrable, que para algo open source es casi lo mismo que no existir.
+
+- **`raycast/`** — el código de la extensión, sin `node_modules` ni build. Verificado en limpio: copia
+  aparte, `npm ci` + `npm run build` desde cero, para asegurar que lo que se publica basta por sí solo y
+  no dependía de ficheros que solo existían en la carpeta original.
+- **Licencia unificada a AGPL-3.0** (decisión del usuario). El `package.json` venía con el `MIT` que pone
+  la plantilla de `create-raycast-extension`; heredar eso por descuido habría metido una subcarpeta
+  permisiva en un repo AGPL sin que nadie lo decidiera.
+- **README**: la extensión sube al primer párrafo junto a la app y la PWA — *tres formas de entrar,
+  las tres escribiendo en los mismos ficheros Markdown* — con su propia sección, la gramática de captura
+  (`--`, `t-`, alias) y la instalación manual.
+- **No va a la Raycast Store todavía** (decisión del usuario): no hay binario instalable para una
+  extensión de Raycast, así que la vía es clonar → `npm install && npm run dev` → *Import Extension*.
+  Confirmado en la documentación de Raycast, no de memoria.
+- Se queda **fuera** `HANDOFF.md`: es andamiaje escrito para quien construyó la extensión, y su §2 describe
+  la carpeta como "plantilla recién creada sin modificar" — dejó de ser verdad el primer día. Publicar
+  documentación que miente sobre el estado actual es peor que no publicarla.
+- `npm audit` da 2 avisos de severidad baja en esbuild vía `@raycast/api`; afectan al dev server **en
+  Windows** y esto es solo macOS. Arreglarlos degradaría `@raycast/api`, así que se quedan.
+
+---
+
 ## v1.0.1 · Icono, aviso de actualización y atajos documentados · Miércoles, 22 de julio de 2026
 
 Tres cosas que el usuario detectó mirando la release publicada.
