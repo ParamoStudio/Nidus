@@ -2,7 +2,7 @@
   import { onMount } from "svelte";
   import {
     app, adoptFromLocation, adoptFromText, unpair, sync,
-    addRecord, deleteRecord, projects, tags,
+    addRecord, updateRecord, deleteRecord, projects, tags,
     defaultProject, noteProjectUsed, groupedProjects,
   } from "./lib/store.svelte.js";
 
@@ -10,12 +10,14 @@
   // points, while an iPad reports 5 even with a Magic Keyboard attached (a pointer/width rule would
   // wrongly lock out exactly that setup). Keeps needless traffic — and mistakes — off the desktop.
   let isDesktop = $state(false);
-  let view = $state("home");        // home | compose | picker | waiting
+  let view = $state("home");        // home | picker | compose
   let kind = $state("inbox");       // inbox | task
   let project = $state(null);
   let pasteCode = $state("");
   let pasteError = $state(false);
   let query = $state("");
+  let editingID = $state(null);   // set while reopening something that hasn't been collected yet
+  let expandedID = $state(null);  // which waiting capture is opened up on the landing
 
   // compose fields
   let title = $state("");
@@ -44,7 +46,22 @@
   function start(nextKind) {
     kind = nextKind;
     project = defaultProject();
+    editingID = null;
     title = ""; body = ""; chosenTags = []; dueDate = ""; dueScope = "day"; dueNote = "";
+    view = "compose";
+  }
+
+  /** Reopen something still waiting. Saving re-posts under the same id, so Nidus sees an edit, not a twin. */
+  function edit(r) {
+    editingID = r.id;
+    kind = r.kind;
+    project = projects().find((p) => p.id === r.projectID) || defaultProject();
+    title = r.title || "";
+    body = r.body || "";
+    chosenTags = r.tags ? [...r.tags] : [];
+    dueDate = r.dueDate ? new Date(r.dueDate).toISOString().slice(0, 10) : "";
+    dueScope = r.dueScope || "day";
+    dueNote = r.dueNote || "";
     view = "compose";
   }
 
@@ -70,7 +87,8 @@
       if (dueDate) { draft.dueDate = new Date(dueDate + "T12:00:00").toISOString(); draft.dueScope = dueScope; }
       if (dueNote.trim()) draft.dueNote = dueNote.trim();
     }
-    addRecord(draft);
+    if (editingID) updateRecord(editingID, draft); else addRecord(draft);
+    editingID = null;
     noteProjectUsed(project.id);
     view = "home";
     sync();
@@ -148,16 +166,45 @@
     </div>
 
     {#if app.records.length}
-      <button class="ghost wide" onclick={() => (view = "waiting")}>
-        {app.records.length} waiting for Nidus
-      </button>
+      <h2 class="section">Waiting for Nidus · {app.records.length}</h2>
+      <ul class="list">
+        {#each app.records as r (r.id)}
+          <li class="entry">
+            <button class="entryhead" onclick={() => (expandedID = expandedID === r.id ? null : r.id)}>
+              <span>
+                <span class="name">{r.title}</span>
+                <span class="sub">
+                  {r.projectName} · {r.kind === "task" ? "Task" : "Inbox"}
+                  {#if !r.sent} · not sent yet{/if}
+                </span>
+              </span>
+              <span class="chev">{expandedID === r.id ? "▾" : "▸"}</span>
+            </button>
+            {#if expandedID === r.id}
+              <div class="entrybody">
+                {#if r.body}<p class="excerpt">{r.body}</p>{/if}
+                {#if r.dueDate}
+                  <p class="meta">Due {new Date(r.dueDate).toLocaleDateString()} · {r.dueScope}</p>
+                {/if}
+                {#if r.tags?.length}
+                  <p class="meta">Tags: {r.tags.map((id) => tags().find((t) => t.id === id)?.name || id).join(", ")}</p>
+                {/if}
+                <div class="entryactions">
+                  <button class="ghost small" onclick={() => edit(r)}>Edit</button>
+                  <button class="ghost small danger" onclick={() => { deleteRecord(r.id); expandedID = null; }}>Delete</button>
+                </div>
+              </div>
+            {/if}
+          </li>
+        {/each}
+      </ul>
     {/if}
 
     {#if app.history.length}
-      <h2 class="section">Last created from phone</h2>
+      <h2 class="section">Already in Nidus</h2>
       <ul class="list">
         {#each app.history.slice(0, 3) as h (h.id)}
-          <li class="record">
+          <li class="record dim">
             <div>
               <span class="name">{h.title}</span>
               <span class="sub">{h.projectName} · {h.kind === "task" ? "Task" : "Inbox"} · {ago(h.filedAt)}</span>
@@ -280,31 +327,6 @@
     {/if}
   </main>
 
-<!-- ── Waiting ──────────────────────────────────────────────────────────────────────────── -->
-{:else}
-  <header>
-    <button class="ghost small" onclick={() => (view = "home")}>Back</button>
-    <strong>Waiting</strong>
-    <button class="ghost small" onclick={sync} disabled={app.busy}>{app.busy ? "…" : "Sync"}</button>
-  </header>
-  <main>
-    {#if !app.records.length}
-      <p class="hint">Nothing waiting. Captures leave here once Nidus files them.</p>
-    {:else}
-      <ul class="list">
-        {#each app.records as r (r.id)}
-          <li class="record">
-            <div>
-              <span class="name">{r.title}</span>
-              <span class="sub">{r.projectName} · {r.kind === "task" ? "Task" : "Inbox"} · {r.sent ? "waiting for Nidus" : "not sent yet"}</span>
-            </div>
-            <button class="ghost small" onclick={() => deleteRecord(r.id)}>Delete</button>
-          </li>
-        {/each}
-      </ul>
-    {/if}
-    {#if app.status}<p class="status">{app.status}</p>{/if}
-  </main>
 {/if}
 
 <style>
@@ -366,6 +388,18 @@
     border: 1px solid #ffffff14; border-radius: 14px;
   }
   .record { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .record.dim { opacity: 0.55; }
+  .entry { background: #ffffff0a; border: 1px solid #ffffff14; border-radius: 14px; overflow: hidden; }
+  .entryhead {
+    width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    padding: 14px; background: none; border: none; text-align: left; border-radius: 0;
+  }
+  .entryhead .chev { color: #8c94a8; font-size: 13px; }
+  .entrybody { padding: 0 14px 14px; border-top: 1px solid #ffffff0f; }
+  .excerpt { font-size: 14px; color: #aab2c5; margin: 10px 0 0; white-space: pre-wrap; }
+  .meta { font-size: 12px; color: #8c94a8; margin: 8px 0 0; }
+  .entryactions { display: flex; gap: 8px; margin-top: 12px; }
+  .ghost.danger { color: #ff9a9a; }
   .name { display: block; font-weight: 600; }
   .sub { display: block; font-size: 12px; color: #8c94a8; margin-top: 2px; }
   .segmented { display: flex; gap: 6px; margin: 12px 0; }

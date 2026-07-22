@@ -140,7 +140,11 @@ async function relay(method, suffix, body) {
     headers: body ? { "Content-Type": "application/json" } : undefined,
     body: body ? JSON.stringify(body) : undefined,
   });
-  if (!res.ok) throw new Error(`relay ${res.status}`);
+  if (!res.ok) {
+    const err = new Error(`relay ${res.status}`);
+    err.status = res.status; // callers need to tell "mailbox full" from "network died"
+    throw err;
+  }
   return res.json();
 }
 
@@ -159,9 +163,17 @@ export async function sync() {
   app.busy = true;
   try {
     // 1. Push anything the relay hasn't accepted yet (re-posting an edited record replaces it by id).
+    let held = 0;
     for (const record of app.records.filter((r) => !r.sent)) {
-      await relay("POST", "up", payload(record));
-      record.sent = true;
+      try {
+        await relay("POST", "up", payload(record));
+        record.sent = true;
+      } catch (e) {
+        // The mailbox is full: not an error, just back-pressure. Keep the rest here — they'll go out
+        // once Nidus collects — rather than hammering the relay or losing anything.
+        if (e.status === 409) { held = app.records.filter((r) => !r.sent).length; break; }
+        throw e;
+      }
     }
     persistRecords();
 
@@ -186,11 +198,13 @@ export async function sync() {
     }
 
     const waiting = app.records.length;
-    app.status = collected.length
-      ? `${collected.length} filed in Nidus.${waiting ? ` ${waiting} still waiting.` : ""}`
-      : waiting
-        ? `${waiting} waiting for Nidus.`
-        : "Everything's synced.";
+    app.status = held
+      ? `Nidus has a full inbox — ${held} kept on this phone until you collect them.`
+      : collected.length
+        ? `${collected.length} filed in Nidus.${waiting ? ` ${waiting} still waiting.` : ""}`
+        : waiting
+          ? `${waiting} waiting for Nidus.`
+          : "Everything's synced.";
   } catch {
     app.status = "Couldn't reach the relay.";
   }

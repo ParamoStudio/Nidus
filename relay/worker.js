@@ -17,13 +17,33 @@
  * vaults never share a queue, and any number of phones can share one pairing.
  *
  * Paste this file as-is into the Cloudflare dashboard editor (Workers → Edit code), or deploy it with
- * wrangler. Bind a KV namespace to the variable name NIDUS_RELAY.
+ * wrangler. Bind a KV namespace to the Worker — the binding's name doesn't matter (see findKV).
  */
 
 const TOKEN_RE = /^[A-Za-z0-9_-]{16,64}$/;
 const TTL_SECONDS = 60 * 60 * 24 * 7; // 7 days — a backstop so abandoned channels disappear
-const MAX_PENDING = 50;               // per PAIRING (shared by every phone on it), not per device
+const MAX_PENDING = 25;               // per PAIRING (shared by every phone on it), not per device.
+                                      // The phone keeps anything beyond this queued locally, so a
+                                      // forgotten pairing can never balloon someone's KV usage.
 const MAX_BODY_BYTES = 512 * 1024;
+
+/**
+ * Find the KV namespace whatever the binding is called.
+ *
+ * Requiring one exact variable name is a trap: people name the binding after their worker, or after
+ * their other project, and get a "not bound" error while staring at a binding that is plainly there.
+ * A KV namespace is recognisable by shape (get/put/delete), so we just look for it. `NIDUS_RELAY` is
+ * still preferred when present, so an explicit binding always wins over a lucky guess.
+ */
+function findKV(env) {
+  if (env?.NIDUS_RELAY?.get) return env.NIDUS_RELAY;
+  for (const value of Object.values(env || {})) {
+    if (value && typeof value.get === "function" && typeof value.put === "function" && typeof value.delete === "function") {
+      return value;
+    }
+  }
+  return null;
+}
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -64,13 +84,14 @@ export default {
     // Validate BEFORE touching KV, so a malformed path can never create junk keys.
     if (!TOKEN_RE.test(token)) return json({ error: "bad_token" }, 400);
     if (box !== "down" && box !== "up") return json({ error: "not_found" }, 404);
-    // Creating a KV namespace is not enough — it has to be BOUND to this worker under this exact
-    // variable name, and the worker redeployed. Report which bindings actually arrived, so a name
-    // mismatch is obvious instead of mysterious. (Names only, and this worker has no secrets.)
-    if (!env.NIDUS_RELAY) {
+    // Creating a KV namespace is not enough — it has to be BOUND to this worker and the worker
+    // redeployed. The binding's NAME doesn't matter (see findKV); report what arrived so a genuinely
+    // missing binding is obvious. (Names only, and this worker has no secrets.)
+    const KV = findKV(env);
+    if (!KV) {
       return json({
         error: "kv_not_bound",
-        hint: "Bind a KV namespace to the variable name NIDUS_RELAY, then deploy again.",
+        hint: "Add a KV namespace binding to this Worker, then deploy again. Any binding name works.",
         bindingsSeen: Object.keys(env || {}),
       }, 500);
     }
@@ -82,18 +103,18 @@ export default {
       if (request.method === "PUT") {
         const { value, error } = await readBody(request);
         if (error) return error;
-        await env.NIDUS_RELAY.put(key, JSON.stringify(value), { expirationTtl: TTL_SECONDS });
+        await KV.put(key, JSON.stringify(value), { expirationTtl: TTL_SECONDS });
         return json({ ok: true });
       }
       if (request.method === "GET") {
-        const stored = await env.NIDUS_RELAY.get(key);
+        const stored = await KV.get(key);
         return json(stored ? JSON.parse(stored) : null);
       }
       return json({ error: "method_not_allowed" }, 405);
     }
 
     // ---- up: records the phone captured, waiting for the desktop ------------------------------
-    const stored = await env.NIDUS_RELAY.get(key);
+    const stored = await KV.get(key);
     const list = stored ? JSON.parse(stored) : [];
 
     if (request.method === "GET") return json(list);
@@ -107,19 +128,19 @@ export default {
       // Replace by id, so editing a record on the phone and re-syncing UPDATES instead of duplicating.
       const next = [...list.filter((x) => x && x.id !== value.id), value];
       if (next.length > MAX_PENDING) return json({ error: "too_many_pending", max: MAX_PENDING }, 409);
-      await env.NIDUS_RELAY.put(key, JSON.stringify(next), { expirationTtl: TTL_SECONDS });
+      await KV.put(key, JSON.stringify(next), { expirationTtl: TTL_SECONDS });
       return json({ ok: true, pending: next.length });
     }
 
     if (request.method === "DELETE") {
       const id = url.searchParams.get("id");
       if (!id) {
-        await env.NIDUS_RELAY.delete(key);
+        await KV.delete(key);
         return json({ ok: true, pending: 0 });
       }
       const next = list.filter((x) => x && x.id !== id);
-      if (next.length === 0) await env.NIDUS_RELAY.delete(key);
-      else await env.NIDUS_RELAY.put(key, JSON.stringify(next), { expirationTtl: TTL_SECONDS });
+      if (next.length === 0) await KV.delete(key);
+      else await KV.put(key, JSON.stringify(next), { expirationTtl: TTL_SECONDS });
       return json({ ok: true, pending: next.length });
     }
 
