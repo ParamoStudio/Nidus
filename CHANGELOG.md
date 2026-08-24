@@ -57,8 +57,15 @@ y era falso; queda corregido ahí mismo en vez de borrado.
   oscuro; 55%/80% en claro). Se descartaron `.regularMaterial` y `.ultraThinMaterial` tras compararlos:
   sobre el degradado de Nidus salen lechosos y pesan más que el contenido. Lo que **no** se pierde es la
   translucidez de la ventana — `GlassBackground` usa `NSVisualEffectView`, disponible desde 10.14.
-- **`ThemeController` se lee de forma opcional**: una vista usada fuera de la raíz de la app (una
-  preview, una hoja suelta) cae al esquema del sistema en vez de reventar por un entorno ausente.
+- **La rama de macOS 26 no declara NINGUNA dependencia de entorno.** El sustituto vive en su propio
+  `LegacyGlass`, así que en un Mac actual el camino es literalmente `content.glassEffect(...)` y nada
+  más: no se lee el tema, no se inserta una vista extra, no se aproxima nada. Si el `ThemeController`
+  se leyera en el modificador común, cambiar de tema invalidaría todas las superficies de cristal sin
+  motivo. Ahí `ThemeController` se lee **opcional**: una vista fuera de la raíz (una preview, una hoja
+  suelta) cae al esquema del sistema en vez de reventar.
+- Equivalencia comprobada punto por punto contra la v1.0.1 (`.regular`/`.clear`, `.interactive()`,
+  `.tint()`) y con `nm` sobre el binario: los símbolos de `glassEffect`, `Glass.tint` y
+  `Glass.interactive` siguen ahí. **Nadie con macOS 26 pierde el cristal.**
 - **iOS/iPadOS se queda en 26.5** a propósito: no era el problema de hoy y bajarlo abriría un frente
   distinto sin nadie esperándolo.
 

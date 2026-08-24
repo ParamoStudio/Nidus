@@ -39,8 +39,30 @@ struct NidusGlass<S: InsettableShape>: ViewModifier {
     var tint: Color? = nil
     var frosted: Bool = true
 
-    /// Optional on purpose: a view used outside the app's root (a preview, a detached sheet) must fall
-    /// back to the system scheme rather than crash on a missing environment object.
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if #available(macOS 26.0, iOS 26.0, *) {
+            // Byte for byte what the app did before this shim existed. On a current Mac this is the
+            // ONLY path: no environment is read, no extra view is inserted, nothing is approximated.
+            let base: Glass = frosted ? .regular : .clear
+            let glass = tint.map { base.tint($0) } ?? base
+            content.glassEffect(interactive ? glass.interactive() : glass, in: shape)
+        } else {
+            content.modifier(LegacyGlass(shape: shape, tint: tint, frosted: frosted))
+        }
+    }
+}
+
+/// The pre-26 half, kept in its own modifier so the macOS 26 path above declares no environment
+/// dependency at all — reading the theme there would invalidate every glass surface on a theme
+/// change for no reason.
+private struct LegacyGlass<S: InsettableShape>: ViewModifier {
+    let shape: S
+    var tint: Color? = nil
+    var frosted: Bool = true
+
+    /// Optional on purpose: a view used outside the app's root (a preview, a detached sheet) falls
+    /// back to the system scheme rather than crashing on a missing environment object.
     @Environment(ThemeController.self) private var theme: ThemeController?
     @Environment(\.colorScheme) private var scheme
 
@@ -53,21 +75,14 @@ struct NidusGlass<S: InsettableShape>: ViewModifier {
     }
     private var edge: Color { .white.opacity(isDark ? 0.22 : 0.80) }
 
-    @ViewBuilder
     func body(content: Content) -> some View {
-        if #available(macOS 26.0, iOS 26.0, *) {
-            let base: Glass = frosted ? .regular : .clear
-            let glass = tint.map { base.tint($0) } ?? base
-            content.glassEffect(interactive ? glass.interactive() : glass, in: shape)
-        } else {
-            content
-                .background {
-                    shape.fill(fill)
-                    if let tint { shape.fill(tint) }
-                }
-                // The lit edge is what reads as glass at a glance; without it this is a flat panel.
-                .overlay(shape.strokeBorder(edge, lineWidth: 1))
-                .clipShape(shape)
-        }
+        content
+            .background {
+                shape.fill(fill)
+                if let tint { shape.fill(tint) }
+            }
+            // The lit edge is what reads as glass at a glance; without it this is a flat panel.
+            .overlay(shape.strokeBorder(edge, lineWidth: 1))
+            .clipShape(shape)
     }
 }
