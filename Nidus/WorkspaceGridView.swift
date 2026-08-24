@@ -196,7 +196,7 @@ struct WorkspaceGridView: View {
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(open ? Color.accentColor : .secondary)
                     .frame(width: 30, height: 30)
-                    .glassEffect(.regular.interactive(), in: Circle())
+                    .nidusGlass(Circle(), interactive: true)
             }
             .buttonStyle(.plain)
             .help("Resize")
@@ -217,7 +217,7 @@ struct WorkspaceGridView: View {
             }
         }
         .padding(10)
-        .glassEffect(.regular, in: Capsule())
+        .nidusGlass(Capsule())
         .transition(.scale(scale: 0.5, anchor: .bottomTrailing).combined(with: .opacity))
     }
 
@@ -711,7 +711,7 @@ private struct PlaceholderCell: View {
                         .font(.system(size: 30, weight: hovering ? .regular : .light))
                         .foregroundStyle(hovering ? .primary : .secondary)
                         .frame(width: 56, height: 56)
-                        .glassEffect(.regular.interactive(), in: Circle())
+                        .nidusGlass(Circle(), interactive: true)
                         .scaleEffect(hovering ? 1.08 : 1)
                 }
                 .contentShape(Rectangle())

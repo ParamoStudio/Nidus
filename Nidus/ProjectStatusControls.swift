@@ -47,7 +47,7 @@ struct ProjectStatusControls: View {
             .contentShape(Capsule())
         }
         .buttonStyle(.plain)
-        .glassEffect(.regular.interactive(), in: Capsule())
+        .nidusGlass(Capsule(), interactive: true)
         .popover(isPresented: $pickingStatus, arrowEdge: .bottom) { statusPicker }
     }
 
@@ -95,7 +95,7 @@ struct ProjectStatusControls: View {
             .contentShape(Capsule())
         }
         .buttonStyle(.plain)
-        .glassEffect(.regular.interactive(), in: Capsule())
+        .nidusGlass(Capsule(), interactive: true)
         .help("Duplicate this project to explore a new direction")
     }
 
@@ -130,7 +130,7 @@ struct ProjectStatusControls: View {
                 .contentShape(Capsule())
             }
             .buttonStyle(.plain)
-            .glassEffect(.regular.interactive(), in: Capsule())
+            .nidusGlass(Capsule(), interactive: true)
         }
     }
 }

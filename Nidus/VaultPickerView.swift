@@ -165,8 +165,7 @@ struct VaultPickerView: View {
                 .contentShape(Capsule())
         }
         .buttonStyle(.plain)
-        .glassEffect((accent ? Glass.regular.tint(.accentColor.opacity(0.45)) : .regular).interactive(),
-                     in: Capsule())
+        .nidusGlass(Capsule(), interactive: true, tint: accent ? .accentColor.opacity(0.45) : nil)
     }
 
     /// Bottom-centred "?" — opens the info popover; glows in the accent during the welcome beat.
@@ -181,7 +180,7 @@ struct VaultPickerView: View {
                 .contentShape(Circle())
         }
         .buttonStyle(.plain)
-        .glassEffect(.regular.interactive(), in: Circle())
+        .nidusGlass(Circle(), interactive: true)
         .overlay {
             Circle().strokeBorder(Color.accentColor.opacity(highlightHelp ? 0.9 : 0), lineWidth: 1.5)
         }
@@ -214,7 +213,7 @@ struct VaultPickerView: View {
                             .contentShape(Circle())
                     }
                     .buttonStyle(.plain)
-                    .glassEffect(.regular.interactive(), in: Circle())
+                    .nidusGlass(Circle(), interactive: true)
                 }
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
@@ -239,7 +238,7 @@ struct VaultPickerView: View {
             }
             .padding(22)
             .frame(width: 312, height: 432)
-            .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+            .nidusGlass(RoundedRectangle(cornerRadius: 28, style: .continuous))
             .transition(.scale(scale: 0.94).combined(with: .opacity))
         }
     }

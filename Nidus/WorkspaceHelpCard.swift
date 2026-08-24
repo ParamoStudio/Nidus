@@ -42,7 +42,7 @@ struct WorkspaceHelpCard: View {
                         .contentShape(Circle())
                 }
                 .buttonStyle(.plain)
-                .glassEffect(.regular.interactive(), in: Circle())
+                .nidusGlass(Circle(), interactive: true)
             }
             ScrollView {
                 Text(Self.body)
@@ -56,7 +56,7 @@ struct WorkspaceHelpCard: View {
         }
         .padding(22)
         .frame(width: 340, height: 420)
-        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+        .nidusGlass(RoundedRectangle(cornerRadius: 28, style: .continuous))
         .transition(.scale(scale: 0.94).combined(with: .opacity))
     }
 }

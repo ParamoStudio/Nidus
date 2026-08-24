@@ -367,7 +367,7 @@ struct WorkspaceView: View {
                     )
                 }
                 .frame(width: 380, height: 600)
-                .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+                .nidusGlass(RoundedRectangle(cornerRadius: 28, style: .continuous))
                 .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
             }
             .transition(.opacity)

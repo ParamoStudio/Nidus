@@ -37,8 +37,7 @@ struct IconButton: View {
         }
         .buttonStyle(.plain)
         // Native Liquid Glass: interactive() gives the live hover/press response.
-        .glassEffect((active ? Glass.regular.tint(.accentColor.opacity(0.4)) : .regular).interactive(),
-                     in: Circle())
+        .nidusGlass(Circle(), interactive: true, tint: active ? .accentColor.opacity(0.4) : nil)
         // Explicit hover signal (availability), on top of the glass reaction.
         .scaleEffect(hovering ? 1.12 : 1)
         .animation(.spring(response: 0.3, dampingFraction: 0.7), value: hovering)

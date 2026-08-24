@@ -73,7 +73,7 @@ struct SidebarView: View {
             bottomBar
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .nidusGlass(RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 
     // MARK: Lists
@@ -342,7 +342,7 @@ private struct SidebarCircleButton: View {
                 .frame(width: 34, height: 34).contentShape(Circle())
         }
         .buttonStyle(.plain)
-        .glassEffect(.regular.interactive(), in: Circle())
+        .nidusGlass(Circle(), interactive: true)
         .scaleEffect(hovering ? 1.1 : 1)
         .animation(.spring(response: 0.3, dampingFraction: 0.7), value: hovering)
         .onHover { hovering = $0 }

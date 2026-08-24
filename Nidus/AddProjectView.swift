@@ -389,7 +389,7 @@ struct AddProjectView: View {
             .contentShape(Capsule())
         }
         .buttonStyle(.plain)
-        .glassEffect(.regular.interactive(), in: Capsule())
+        .nidusGlass(Capsule(), interactive: true)
     }
 
     // MARK: - Helpers
@@ -465,7 +465,7 @@ private struct GlassPillButton: View {
                 .contentShape(Capsule())
         }
         .buttonStyle(.plain)
-        .glassEffect((tint.map { Glass.regular.tint($0.opacity(0.45)) } ?? .regular).interactive(), in: Capsule())
+        .nidusGlass(Capsule(), interactive: true, tint: tint?.opacity(0.45))
         .scaleEffect(hovering ? 1.03 : 1)
         .animation(.spring(response: 0.3, dampingFraction: 0.7), value: hovering)
         .onHover { hovering = $0 }

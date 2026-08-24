@@ -30,6 +30,46 @@ Releases. Existía sin ser encontrable, que para algo open source es casi lo mis
 
 ---
 
+## v1.1.0 · Nidus baja a macOS 15 Sequoia (y a los Mac Intel) · Lunes, 24 de agosto de 2026
+
+Los compañeros de taller del usuario no podían abrir la app: ordenadores más antiguos, y el mínimo era
+macOS 26.5 — que en Intel solo alcanza a cuatro modelos. **El mínimo baja a macOS 15 Sequoia**, binario
+universal Apple Silicon + Intel.
+
+**Lo primero fue medirlo, no estimarlo.** Bajando el deployment target y contando errores reales:
+
+| Objetivo | Errores | Qué son |
+|---|---|---|
+| macOS 15 | 22 | **solo `glassEffect`/`Glass`** |
+| macOS 14 | + `TextSelection` | ~14 sitios de las barras Markdown |
+| macOS 13 | 138 | `@Observable` en 12 clases → reescritura |
+
+Es decir: para Sequoia, **el único obstáculo de toda la app era el cristal**. Todo lo demás
+(`@Observable`, `onKeyPress`, `ImageRenderer`, el metaball, el vault, el puente del móvil) ya era
+compatible. El README afirmaba lo contrario — que el mínimo no se podía bajar sin reescribir la app —
+y era falso; queda corregido ahí mismo en vez de borrado.
+
+- **`GlassCompat.swift`** — un solo modificador `nidusGlass(shape, interactive:, tint:, frosted:)` por
+  el que pasan las 23 superficies de cristal. `#available` es una comprobación **en tiempo de
+  ejecución**, así que **NO hay fork**: el mismo binario usa Liquid Glass donde existe y el sustituto
+  donde no. Una descarga, un codebase, nada que mantener por duplicado.
+- **El sustituto**: lavado translúcido + borde iluminado, sensible al tema (blanco 8%/borde 22% en
+  oscuro; 55%/80% en claro). Se descartaron `.regularMaterial` y `.ultraThinMaterial` tras compararlos:
+  sobre el degradado de Nidus salen lechosos y pesan más que el contenido. Lo que **no** se pierde es la
+  translucidez de la ventana — `GlassBackground` usa `NSVisualEffectView`, disponible desde 10.14.
+- **`ThemeController` se lee de forma opcional**: una vista usada fuera de la raíz de la app (una
+  preview, una hoja suelta) cae al esquema del sistema en vez de reventar por un entorno ausente.
+- **iOS/iPadOS se queda en 26.5** a propósito: no era el problema de hoy y bajarlo abriría un frente
+  distinto sin nadie esperándolo.
+
+**Verificación**: build universal (`lipo` → `x86_64 arm64`, `minos 15.0` en ambos slices); el build de
+macOS 26 sigue intacto; 9/9 tests. Y como en un Mac con macOS 26 la rama del sustituto **nunca se
+ejecuta**, se forzó aparte con el código real del shim y se renderizó en claro y oscuro — que de paso
+confirmó que sin `ThemeController` no crashea. Lo que sigue sin verificar: nadie lo ha ejecutado todavía
+en un Mac Intel con Sequoia de verdad.
+
+---
+
 ## v1.0.1 · Icono, aviso de actualización y atajos documentados · Miércoles, 22 de julio de 2026
 
 Tres cosas que el usuario detectó mirando la release publicada.

@@ -54,7 +54,7 @@ struct ProjectQuickActions: View {
                     ForEach(actions.prefix(userSlots)) { action in
                         Button { onRun(action) } label: { pillBody(action.title, icon: icon(for: action.kind)) }
                             .buttonStyle(.plain)
-                            .glassEffect(.regular.interactive(), in: Capsule())
+                            .nidusGlass(Capsule(), interactive: true)
                     }
                 }
             }
@@ -73,7 +73,7 @@ struct ProjectQuickActions: View {
     private var forkedOriginalPill: some View {
         Button { if let o = forkedOriginal { onOpenOriginal(o) } } label: {
             pillBody("Forked Original", icon: "arrow.triangle.branch")
-                .glassEffect(.regular.interactive(), in: Capsule())
+                .nidusGlass(Capsule(), interactive: true)
         }
         .buttonStyle(.plain)
         .help("Open the project this one was forked from")
@@ -87,7 +87,7 @@ struct ProjectQuickActions: View {
             }
         } label: {
             pillBody("Forks · \(forks.count)", icon: "arrow.triangle.branch")
-                .glassEffect(.regular.interactive(), in: Capsule())
+                .nidusGlass(Capsule(), interactive: true)
         }
         .buttonStyle(.plain)
         .menuStyle(.borderlessButton)
@@ -101,7 +101,7 @@ struct ProjectQuickActions: View {
         Button { editingIndex = i } label: {
             if let action {
                 pillBody(action.title, icon: icon(for: action.kind))
-                    .glassEffect(.regular.interactive(), in: Capsule())
+                    .nidusGlass(Capsule(), interactive: true)
             } else {
                 pillBody("Configure quick action", icon: "plus", muted: true)
                     .overlay(Capsule().strokeBorder(.secondary.opacity(0.4),

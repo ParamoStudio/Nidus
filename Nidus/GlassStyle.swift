@@ -22,8 +22,9 @@ struct GlassCard: ViewModifier {
     var frosted: Bool = true
 
     func body(content: Content) -> some View {
-        content.glassEffect(frosted ? .regular : .clear,
-                            in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+        // `frosted` maps to how much the surface asserts itself; see GlassCompat for the pre-26 half.
+        content.nidusGlass(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous),
+                           frosted: frosted)
     }
 }
 

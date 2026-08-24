@@ -32,15 +32,20 @@ Everything else follows from that:
 
 ## Requirements
 
-macOS **26.5** or later.
+macOS **15 Sequoia** or later. Universal binary — Apple Silicon and Intel.
 
-This isn't a version number we could lower by editing one line: the interface is built on macOS 26's
-Liquid Glass (`glassEffect`) and other APIs from the same release. An older-macOS build would be a
-different piece of software, not a build flag.
+On macOS 26 the interface is drawn with Liquid Glass. On Sequoia, where that doesn't exist, the same
+build falls back to a translucent wash with a lit edge; the window itself stays translucent either way.
+It's one download and one codebase — the check happens at runtime, so nothing is forked and there is no
+"old Mac edition" to choose between.
+
+*(Earlier releases asked for macOS 26.5, and this README claimed that couldn't be lowered without
+rewriting the app. That was wrong: `glassEffect` turned out to be the only macOS 26 API in the whole
+project, and it took a shim, not a rewrite.)*
 
 ## Install
 
-1. Download `Nidus-1.0-macOS.zip` from [Releases](https://github.com/ParamoStudio/Nidus/releases).
+1. Download the latest `Nidus-*-macOS.zip` from [Releases](https://github.com/ParamoStudio/Nidus/releases).
 2. Unzip it and move **Nidus.app** to `/Applications`.
 3. **The first launch needs a right-click.** Right-click (or Control-click) the app → **Open** →
    **Open** again in the dialog. After that it opens normally.
